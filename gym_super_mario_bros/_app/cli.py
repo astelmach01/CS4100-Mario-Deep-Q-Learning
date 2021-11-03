@@ -4,7 +4,7 @@ import gym
 from nes_py.wrappers import JoypadSpace
 from nes_py.app.play_human import play_human
 from nes_py.app.play_random import play_random
-from ..actions import RIGHT_ONLY, SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
+from gym_super_mario_bros.actions import RIGHT_ONLY, SIMPLE_MOVEMENT, COMPLEX_MOVEMENT
 
 
 # a key mapping of action spaces to wrap with
@@ -20,30 +20,30 @@ def _get_args():
     parser = argparse.ArgumentParser(description=__doc__)
     # add the argument for the Super Mario Bros environment to run
     parser.add_argument('--env', '-e',
-        type=str,
-        default='SuperMarioBros-v0',
-        help='The name of the environment to play'
-    )
+                        type=str,
+                        default='SuperMarioBros-v0',
+                        help='The name of the environment to play'
+                        )
     # add the argument for the mode of execution as either human or random
     parser.add_argument('--mode', '-m',
-        type=str,
-        default='human',
-        choices=['human', 'random'],
-        help='The execution mode for the emulation'
-    )
+                        type=str,
+                        default='human',
+                        choices=['human', 'random'],
+                        help='The execution mode for the emulation'
+                        )
     # add the argument for adjusting the action space
     parser.add_argument('--actionspace', '-a',
-        type=str,
-        default='nes',
-        choices=['nes', 'right', 'simple', 'complex'],
-        help='the action space wrapper to use'
-    )
+                        type=str,
+                        default='nes',
+                        choices=['nes', 'right', 'simple', 'complex'],
+                        help='the action space wrapper to use'
+                        )
     # add the argument for the number of steps to take in random mode
     parser.add_argument('--steps', '-s',
-        type=int,
-        default=500,
-        help='The number of random steps to take.',
-    )
+                        type=int,
+                        default=500,
+                        help='The number of random steps to take.',
+                        )
     # parse arguments and return them
     return parser.parse_args()
 
