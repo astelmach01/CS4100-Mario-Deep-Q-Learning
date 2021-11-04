@@ -28,7 +28,7 @@ def _get_args():
     parser.add_argument('--mode', '-m',
                         type=str,
                         default='human',
-                        choices=['human', 'random'],
+                        choices=['human', 'random', 'q'],
                         help='The execution mode for the emulation'
                         )
     # add the argument for adjusting the action space
@@ -44,6 +44,7 @@ def _get_args():
                         default=500,
                         help='The number of random steps to take.',
                         )
+                        
     # parse arguments and return them
     return parser.parse_args()
 
@@ -64,8 +65,10 @@ def main():
     # play the environment with the given mode
     if args.mode == 'human':
         play_human(env)
-    else:
+    if args.mode == 'random':
         play_random(env, args.steps)
+    if args.mode == 'q':
+        play_q(env)
 
 
 # explicitly define the outward facing API of this module
