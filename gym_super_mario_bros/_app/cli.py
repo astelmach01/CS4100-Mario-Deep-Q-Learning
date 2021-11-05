@@ -35,7 +35,7 @@ def _get_args():
     # add the argument for adjusting the action space
     parser.add_argument('--actionspace', '-a',
                         type=str,
-                        default='nes',
+                        default='simple',
                         choices=['nes', 'right', 'simple', 'complex'],
                         help='the action space wrapper to use'
                         )
