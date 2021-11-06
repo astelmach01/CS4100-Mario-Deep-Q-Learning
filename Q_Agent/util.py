@@ -313,6 +313,9 @@ class Counter(dict):
     also be normalized and their total count and arg max can be extracted.
     """
 
+    def __init__(self, values=None):
+        super().__init__()
+
     def __getitem__(self, idx):
         self.setdefault(idx, 0)
         return dict.__getitem__(self, idx)

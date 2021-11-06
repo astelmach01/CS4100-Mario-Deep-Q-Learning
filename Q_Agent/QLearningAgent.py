@@ -17,6 +17,18 @@ def make_state(info):
     return str((info["x_pos"], info["y_pos"], info["time"], info["coins"], info["status"], info["life"]))
 
 
+def custom_reward(info: dict):
+    if info["flag_get"]:
+        return 200000
+    total = 0
+    total += (info["x_pos"] - 40) / 20
+    total += (info["y_pos"]) / 10
+    total += info['score'] / 100
+    total += info['coins'] * 2
+
+    return total * info["life"] * 1 / 2
+
+
 class ValueIterationAgent:
     """
         * Please read learningAgents.py before reading this.*
@@ -43,7 +55,14 @@ class ValueIterationAgent:
         self.env = env
         self.discount = discount
         self.iterations = iterations
-        self.q_values = Counter()
+        try:
+            values = json.load(open("convert.txt"))
+            self.q_values = Counter()
+            for value in values.keys():
+                self.q_values[value] = float(values[value])
+        except:
+            self.q_values = Counter()
+
         self.valueIteration()
 
     def valueIteration(self):
@@ -51,27 +70,28 @@ class ValueIterationAgent:
         actions = self.env.unwrapped.get_action_meanings()
         print(actions)
         print(self.env.get_keys_to_action())
+        print("number of actions: " + str(self.env.action_space.n))
+        # print(self.q_values)
         #   help(self.env.unwrapped)
 
         # Hyperparameters
-        alpha = 0.1
+        alpha = 1
         gamma = 0.95
-        epsilon = 0.2
+        epsilon = 0.25
 
         # For plotting metrics
         all_epochs = []
         all_penalties = []
 
+        x_s = set()
         # changed reward range to -100, 100
-        for i in range(1, 10001):
+        for i in range(1, 50000):
             state = self.env.reset()
             state = hash(str(state))
             done = False
-            prev = datetime.now()
             iteration = 1
             detect = -1
-            if i == 3:
-                x = 5
+
             while not done:
 
                 if random.uniform(0, 1) < epsilon:
@@ -82,57 +102,60 @@ class ValueIterationAgent:
 
                 try:
                     next_state, reward, done, info = self.env.step(action)
-
+                    # reward = custom_reward(info)
                 except:
-                    done = True
-
-                if done:
-                    reward = 10000
+                    break
 
                 next_state = make_state(info)
 
-                if iteration % 15 == 0:
-                    # if detect == info["x_pos"]:
-                    #     reward = -100
-                    #     done = True
-                    # detect = info["x_pos"]
-                    print(reward)
+                if iteration % 10 == 0:
+                    if detect == info["x_pos"]:
+                        # reward *= -2
+                        done = True
+                    detect = info["x_pos"]
 
                 # implement q learning
                 old_value = self.q_values[str((state, action))]
 
                 next_max = self.getMaxValue()
-                self.q_values[str((state, action))] = (1 - alpha) * old_value + alpha * (reward + gamma * next_max)
+                # Q(s, a) <- Q(s, a) + alpha * (reward + discount * max(Q(s', a')) - Q(s, a))
+                self.q_values[str((state, action))] = old_value + alpha * (reward + gamma * next_max - old_value)
 
+                # print(self.q_values[str((state, action))])
                 state = next_state
                 iteration += 1
 
-                # self.env.render()
+                self.env.render()
 
-            print("Iteration " + str(i) + ": " + str((datetime.now() - prev)))
-            if i % 10 == 0:
-                clear_output(wait=True)
-                print(f"Episode: {i}")
+                x_s.add(info["x_pos"])
+            print("Iteration " + str(i) + ": " + str(info["x_pos"])) if info["x_pos"] > 600 else print(
+                "Iteration " + str(i))
 
         print("Training finished.\n")
+        print("Largest x_pos: " + str(max(x_s)))
+
+        self.q_values = dict((''.join(str(k)), str(v)) for k, v in self.q_values.items())
         with open('convert.txt', 'w') as convert_file:
             convert_file.write(json.dumps(self.q_values))
 
-    def getAction(self):
+    def getAction(self, fake_env: JoypadSpace = 1):
+        if fake_env == 1:
+            fake_env = self.env
         next_max = float('-inf')
-        best_action = None
-        env_copy = copy.copy(self.env)
+        best_action = 2
+        env_copy = copy.copy(fake_env)
         n = self.env.action_space.n
         for trying in range(n):
             env = env_copy
             try:
                 _, _, tried, y = env.step(trying)
-                if self.q_values[make_state(y), trying] > next_max:
+                if self.q_values[make_state(y), trying] >= next_max:
                     next_max = self.q_values[str((make_state(y), trying))]
                     best_action = trying
             except:
                 continue
 
+        # TODO change to return 2 by default and use counter
         return best_action
 
     def getMaxValue(self):

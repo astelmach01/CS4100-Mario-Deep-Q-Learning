@@ -69,7 +69,7 @@ def main():
     if args.mode == 'random':
         play_random(env, args.steps)
     if args.mode == 'q':
-        play_q(env)
+        play_q(env, args, actions)
 
 
 # explicitly define the outward facing API of this module
