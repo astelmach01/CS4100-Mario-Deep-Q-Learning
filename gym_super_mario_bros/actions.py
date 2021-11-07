@@ -10,6 +10,11 @@ RIGHT_ONLY = [
     ['right', 'A', 'B'],
 ]
 
+RIGHT_AND_JUMP = [
+    ['right'],
+    ['right', 'A']
+]
+
 
 # actions for very simple movement
 SIMPLE_MOVEMENT = [

@@ -56,7 +56,7 @@ class ValueIterationAgent:
         self.discount = discount
         self.iterations = iterations
         try:
-            values = json.load(open("convert.txt"))
+            values = json.load(open("convert_right_and_jump.txt"))
             self.q_values = Counter()
             for value in values.keys():
                 self.q_values[value] = float(values[value])
@@ -77,7 +77,7 @@ class ValueIterationAgent:
         # Hyperparameters
         alpha = 1
         gamma = 0.95
-        epsilon = 0.25
+        epsilon = 0.15
 
         # For plotting metrics
         all_epochs = []
@@ -135,7 +135,7 @@ class ValueIterationAgent:
         print("Largest x_pos: " + str(max(x_s)))
 
         self.q_values = dict((''.join(str(k)), str(v)) for k, v in self.q_values.items())
-        with open('convert.txt', 'w') as convert_file:
+        with open('convert_right_and_jump.txt', 'w') as convert_file:
             convert_file.write(json.dumps(self.q_values))
 
     def getAction(self, fake_env: JoypadSpace = 1):
