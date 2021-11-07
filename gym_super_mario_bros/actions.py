@@ -1,5 +1,9 @@
 """Static action sets for binary to discrete action space wrappers."""
 
+RIGHT_AND_JUMP = [
+    ['right'],
+    ['right', 'A']
+]
 
 # actions for the simple run right environment
 RIGHT_ONLY = [
@@ -9,12 +13,6 @@ RIGHT_ONLY = [
     ['right', 'B'],
     ['right', 'A', 'B'],
 ]
-
-RIGHT_AND_JUMP = [
-    ['right'],
-    ['right', 'A']
-]
-
 
 # actions for very simple movement
 SIMPLE_MOVEMENT = [

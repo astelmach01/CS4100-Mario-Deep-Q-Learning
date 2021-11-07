@@ -1,20 +1,24 @@
-import time
+import copy
+import json
+import math
+import random
 
-import gym
-import numpy as np
 from nes_py.wrappers import JoypadSpace
-from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 
 from Q_Agent.util import Counter
-import random
-from IPython.display import clear_output
-import copy
-from datetime import datetime
-import json
+
+'''
+Things you tried
+-removed time space
+-custom reward function
+-changed bounds of reward
+-special rewards
+-changed action space
+'''
 
 
 def make_state(info):
-    return str((info["x_pos"], info["y_pos"], info["time"], info["coins"], info["status"], info["life"]))
+    return str((info["x_pos"], info["y_pos"], info["coins"], info["status"], info["life"]))
 
 
 def custom_reward(info: dict):
@@ -30,28 +34,9 @@ def custom_reward(info: dict):
 
 
 class ValueIterationAgent:
-    """
-        * Please read learningAgents.py before reading this.*
-
-        A ValueIterationAgent takes a Markov decision process
-        (see mdp.py) on initialization and runs value iteration
-        for a given number of iterations using the supplied
-        discount factor.
-    """
 
     def __init__(self, env, discount=0.9, iterations=1000):
-        """
-          Your value iteration agent should take an mdp on
-          construction, run the indicated number of iterations
-          and then act according to the resulting policy.
 
-          Some useful mdp methods you will use:
-              mdp.getStates()
-              mdp.getPossibleActions(state)
-              mdp.getTransitionStatesAndProbs(state, action)
-              mdp.getReward(state, action, nextState)
-              mdp.isTerminal(state)
-        """
         self.env = env
         self.discount = discount
         self.iterations = iterations
@@ -103,6 +88,9 @@ class ValueIterationAgent:
                 try:
                     next_state, reward, done, info = self.env.step(action)
                     # reward = custom_reward(info)
+                    reward += (1/5000) * ((info["x_pos"]-100)**2)
+                    # check values of reward for no clipping
+
                 except:
                     break
 
@@ -155,7 +143,6 @@ class ValueIterationAgent:
             except:
                 continue
 
-        # TODO change to return 2 by default and use counter
         return best_action
 
     def getMaxValue(self):
