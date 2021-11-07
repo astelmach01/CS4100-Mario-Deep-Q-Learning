@@ -24,13 +24,13 @@ def make_state(info):
 def custom_reward(info: dict):
     if info["flag_get"]:
         return 200000
+    
     total = 0
     total += (info["x_pos"] - 40) / 20
-    total += (info["y_pos"]) / 10
     total += info['score'] / 100
     total += info['coins'] * 2
 
-    return total * info["life"] * 1 / 2
+    return total 
 
 
 class ValueIterationAgent:
@@ -41,7 +41,7 @@ class ValueIterationAgent:
         self.discount = discount
         self.iterations = iterations
         try:
-            values = json.load(open("convert_right_and_jump.txt"))
+            values = json.load(open("convert_right_and_jump2.txt"))
             self.q_values = Counter()
             for value in values.keys():
                 self.q_values[value] = float(values[value])
@@ -62,15 +62,16 @@ class ValueIterationAgent:
         # Hyperparameters
         alpha = 1
         gamma = 0.95
-        epsilon = 0.15
+        epsilon = 0.1
 
         # For plotting metrics
         all_epochs = []
         all_penalties = []
+        num_done_well = 0
 
         x_s = set()
         # changed reward range to -100, 100
-        for i in range(1, 50000):
+        for i in range(1, 500000):
             state = self.env.reset()
             state = hash(str(state))
             done = False
@@ -87,8 +88,7 @@ class ValueIterationAgent:
 
                 try:
                     next_state, reward, done, info = self.env.step(action)
-                    # reward = custom_reward(info)
-                    reward += (1/5000) * ((info["x_pos"]-100)**2)
+                    reward = custom_reward(info)
                     # check values of reward for no clipping
 
                 except:
@@ -101,6 +101,10 @@ class ValueIterationAgent:
                         # reward *= -2
                         done = True
                     detect = info["x_pos"]
+                    
+                if info["x_pos"] > 600:
+                    num_done_well += 1
+                    
 
                 # implement q learning
                 old_value = self.q_values[str((state, action))]
@@ -116,14 +120,20 @@ class ValueIterationAgent:
                 self.env.render()
 
                 x_s.add(info["x_pos"])
-            print("Iteration " + str(i) + ": " + str(info["x_pos"])) if info["x_pos"] > 600 else print(
-                "Iteration " + str(i))
+            
+            if info["x_pos"] > 600:
+                print("Iteration " + str(i) + ": " +
+                      str(info["x_pos"]) + ". Reward: " + str(reward))
+                
+            else:
+                print("Iteration " + str(i) + ". Reward: " + str(reward))
 
         print("Training finished.\n")
         print("Largest x_pos: " + str(max(x_s)))
+        print("Num done well: " + str(num_done_well))
 
         self.q_values = dict((''.join(str(k)), str(v)) for k, v in self.q_values.items())
-        with open('convert_right_and_jump.txt', 'w') as convert_file:
+        with open('convert_right_and_jump_custom_reward.txt', 'w') as convert_file:
             convert_file.write(json.dumps(self.q_values))
 
     def getAction(self, fake_env: JoypadSpace = 1):

@@ -4,7 +4,6 @@ import json
 import gym
 from nes_py.wrappers import JoypadSpace
 
-import Q_Agent.QLearningAgent
 from Q_Agent.QLearningAgent import ValueIterationAgent
 import copy
 episodes = 100
@@ -12,10 +11,14 @@ episodes = 100
 
 def play_q(env: JoypadSpace, args, actions):
     for _ in range(episodes):
-
+        
+        if actions == None:
+            actions = env.action_space.n
+        else:
+            environment = JoypadSpace(gym.make(args.env), actions)
+            environment.reset()
+            
         agent = ValueIterationAgent(env)
-        environment = JoypadSpace(gym.make(args.env), actions)
-        environment.reset()
 
         try:
             done = False
