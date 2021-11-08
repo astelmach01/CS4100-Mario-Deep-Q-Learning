@@ -16,6 +16,7 @@ Things you tried
 -changed action space
 '''
 
+file_name = 'simple_custom_reward_improved_x_high_alpha_changed_q_value.txt'
 
 def make_state(info):
     return str(info["x_pos"]) + " , " + str(info["y_pos"])
@@ -26,9 +27,9 @@ def custom_reward(info: dict):
         return 200000
 
     total = 0
-    total += (info["x_pos"] - 40) / 20
+    total += 1/5000 * ((info["x_pos"] - 40) ** 2)
     total += info['score'] / 100
-    total += info['coins'] * 2
+    total += info['coins'] * 10
 
     return total
 
@@ -41,7 +42,7 @@ class ValueIterationAgent:
         self.discount = discount
         self.iterations = iterations
         try:
-            values = json.load(open("convert_right_and_jump2.txt"))
+            values = json.load(open(file_name))
             self.q_values = Counter()
             for value in values.keys():
                 self.q_values[value] = float(values[value])
@@ -60,13 +61,12 @@ class ValueIterationAgent:
         #   help(self.env.unwrapped)
 
         # Hyperparameters
-        alpha = 1
+        alpha = .1
         gamma = 0.95
         epsilon = 0.1
 
         # For plotting metrics
-        all_epochs = []
-        all_penalties = []
+        epochs = []
         num_done_well = 0
 
         x_s = set()
@@ -78,7 +78,7 @@ class ValueIterationAgent:
             iteration = 1
             detect = -1
 
-            if i == 100:
+            if i == 1000:
                 x = 5
             while not done:
 
@@ -98,7 +98,7 @@ class ValueIterationAgent:
 
                 next_state = make_state(info)
 
-                if iteration % 10 == 0:
+                if iteration % 20 == 0:
                     if detect == info["x_pos"]:
                         # reward *= -2
                         done = True
@@ -108,19 +108,24 @@ class ValueIterationAgent:
                     num_done_well += 1
 
                 # implement q learning
-                old_value = self.q_values[str((state, action))]
+                key = str((state, action))
+                
+                old_value = self.q_values[key]
 
                 next_max = self.getMaxValue()
+                
                 # Q(s, a) <- Q(s, a) + alpha * (reward + discount * max(Q(s', a')) - Q(s, a))
-                self.q_values[str((state, action))] = old_value + alpha * (reward + gamma * next_max - old_value)
+                self.q_values[key] = old_value + alpha * (reward + gamma * next_max - old_value)
+                #self.q_values[key] = (1-alpha) * old_value + alpha * (reward + gamma * next_max)
 
                 # print(self.q_values[str((state, action))])
                 state = next_state
                 iteration += 1
 
-                self.env.render()
+                #self.env.render()
 
                 x_s.add(info["x_pos"])
+            epochs.append((i, reward))
 
             if info["x_pos"] > 600:
                 print("Iteration " + str(i) + ": " +
@@ -134,8 +139,14 @@ class ValueIterationAgent:
         print("Num done well: " + str(num_done_well))
 
         self.q_values = dict((''.join(str(k)), str(v)) for k, v in self.q_values.items())
-        with open('convert_right_and_jump_custom_reward.txt', 'w') as convert_file:
+        with open(file_name, 'w') as convert_file:
             convert_file.write(json.dumps(self.q_values))
+
+
+
+        with open(file_name+"x_s.txt", 'w') as f:
+            for item in x_s:
+                f.write("%s\n" % item)
 
     def getAction(self, fake_env: JoypadSpace = 1):
         if fake_env == 1:
