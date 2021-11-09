@@ -18,7 +18,7 @@ Things you tried
 '''
 
 # TODO: actions are actually right and jump not simple
-file_name = 'custom_score_right_low_alpha.txt'
+file_name = 'custom_score_right_medium_alpha.txt'
 
 
 def make_state(info):
@@ -39,10 +39,10 @@ def custom_reward(info: dict):
 
 class ValueIterationAgent:
 
-    def __init__(self, env, alpha = .1, gamma = .95, epsilon = .1, iterations=1000):
+    def __init__(self, env, alpha = .5, gamma = .95, epsilon = .1, iterations=1000):
 
-        self.env = env
-        self.alpha = alpha
+        self.env: JoypadSpace = env
+        self.alpha: float = alpha
         self.gamma = gamma
         self.epsilon = epsilon
         self.iterations = iterations
@@ -90,7 +90,7 @@ class ValueIterationAgent:
 
         x_s = set()
         # changed reward range to -100, 100
-        for i in range(1, 500000):
+        for i in range(1, 20000):
             state = self.env.reset()
             state = hash(str(state))
             done = False
@@ -111,7 +111,7 @@ class ValueIterationAgent:
 
                 try:
                     next_state, reward, done, info = self.env.step(action)
-                    reward = custom_reward(info)
+                    reward = round(custom_reward(info), 5)
                     # check values of reward for no clipping
 
                 except:
@@ -131,7 +131,7 @@ class ValueIterationAgent:
                 # implement q learning
                 key = str((state, action))
 
-                old_value = self.q_values[key]
+                old_value = round(self.q_values[key], 3)
 
                 next_max = self.getMaxValue()
 
@@ -143,7 +143,7 @@ class ValueIterationAgent:
                 state = next_state
                 iteration += 1
 
-                #self.env.render()
+                self.env.render()
 
                 x_s.add(info["x_pos"])
             epochs.append((i, reward))
@@ -170,6 +170,7 @@ class ValueIterationAgent:
     def getAction(self, fake_env: JoypadSpace = 1):
         if fake_env == 1:
             fake_env = self.env
+            
         next_max = float('-inf')
         best_action = 2
         env_copy = copy.copy(fake_env)
@@ -187,7 +188,7 @@ class ValueIterationAgent:
                 continue
 
         if self.try_hold(env_copy) > next_max:
-            self.holding_down = (True, self.env.action_space.n-1, 14)
+            self.holding_down = (True, self.env.action_space.n-1, 10)
             return self.env.action_space.n-1
 
         return best_action
@@ -205,10 +206,13 @@ class ValueIterationAgent:
             except ValueError:
                 continue
 
-        return largest if largest > self.try_hold(env_copy) else self.try_hold(env_copy)
+        return largest if largest > self.try_hold() else self.try_hold()
 
-    def try_hold(self, env):
-        env_copy = copy.copy(env)
+    def try_hold(self, environmnent = None):  
+        if environmnent is None:
+            environmnent = self.env
+        #TODO make this better by choosing the actions in the best holding frame amount
+        env_copy = copy.copy(environmnent)
         value = 0
         for _ in range(10):
             try:
