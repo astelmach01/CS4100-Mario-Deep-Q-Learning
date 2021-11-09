@@ -46,9 +46,11 @@ class ValueIterationAgent:
         self.gamma = gamma
         self.epsilon = epsilon
         self.iterations = iterations
-        self.holding_down = (False, None, 10)
+        self.max_steps_per_hold = 15
+        self.holding_down = (False, None, self.max_steps_per_hold)
+
         self.prev_score = 0
-        
+
         try:
             values = json.load(open(file_name))
             self.q_values = Counter()
@@ -64,7 +66,7 @@ class ValueIterationAgent:
         self.prev_score = info['score']
 
         return reward
-    
+
     def epsilon_greedy_action(self):
         # epsilon greedy
         if random.uniform(0, 1) < self.epsilon:
@@ -101,7 +103,7 @@ class ValueIterationAgent:
                 if self.holding_down[0]:
                     action = self.holding_down[1]
                     if self.holding_down[2] == 0:
-                        self.holding_down = (False, None, 30)
+                        self.holding_down = (False, None, 50)
                     else:
                         self.holding_down = (True, self.holding_down[1], self.holding_down[2] - 1)
                 else:
@@ -141,12 +143,12 @@ class ValueIterationAgent:
                 state = next_state
                 iteration += 1
 
-                self.env.render()
+                #self.env.render()
 
                 x_s.add(info["x_pos"])
             epochs.append((i, reward))
 
-            if info["x_pos"] > 600:
+            if info["x_pos"] > 722:
                 print("Iteration " + str(i) + ": " +
                       str(info["x_pos"]) + ". Reward: " + str(reward))
 
@@ -185,7 +187,7 @@ class ValueIterationAgent:
                 continue
 
         if self.try_hold(env_copy) > next_max:
-            self.holding_down = (True, self.env.action_space.n-1, 30)
+            self.holding_down = (True, self.env.action_space.n-1, 14)
             return self.env.action_space.n-1
 
         return best_action
@@ -202,17 +204,16 @@ class ValueIterationAgent:
                 largest = max(largest, self.q_values[str((make_state(y), trying))])
             except ValueError:
                 continue
-            
+
         return largest if largest > self.try_hold(env_copy) else self.try_hold(env_copy)
-    
+
     def try_hold(self, env):
         env_copy = copy.copy(env)
-        total = 0
+        value = 0
         for _ in range(10):
             try:
                 _, _, _, y = env_copy.step(self.env.action_space.n - 1)
                 value = custom_reward(y)
-                total += value
             except ValueError:
                 continue
-        return total / 10
+        return value

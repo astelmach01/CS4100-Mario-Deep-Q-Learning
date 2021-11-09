@@ -1,5 +1,4 @@
 """Methods for playing the game from the value iteration agent."""
-import json
 
 import gym
 from nes_py.wrappers import JoypadSpace
