@@ -5,7 +5,7 @@ from nes_py.wrappers import JoypadSpace
 from nes_py.app.play_human import play_human
 from nes_py.app.play_random import play_random
 from Q_Agent.play import play_q
-from gym_super_mario_bros.actions import RIGHT_ONLY, SIMPLE_MOVEMENT, COMPLEX_MOVEMENT, RIGHT_AND_JUMP
+from gym_super_mario_bros.actions import RIGHT_ONLY, SIMPLE_MOVEMENT, COMPLEX_MOVEMENT, RIGHT_AND_JUMP, TEST
 
 
 # a key mapping of action spaces to wrap with
@@ -13,7 +13,8 @@ _ACTION_SPACES = {
     'right': RIGHT_ONLY,
     'simple': SIMPLE_MOVEMENT,
     'complex': COMPLEX_MOVEMENT,
-    'right_and_jump': RIGHT_AND_JUMP
+    'right_and_jump': RIGHT_AND_JUMP,
+    'test' : TEST
 }
 
 
@@ -37,7 +38,7 @@ def _get_args():
     parser.add_argument('--actionspace', '-a',
                         type=str,
                         default='right_and_jump',
-                        choices=['nes', 'right', 'right_and_jump', 'simple', 'complex'],
+                        choices=['nes', 'right', 'right_and_jump', 'simple', 'complex', 'test'],
                         help='the action space wrapper to use'
                         )
     # add the argument for the number of steps to take in random mode

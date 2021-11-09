@@ -1,6 +1,7 @@
 import copy
 import json
 import math
+from os import environ
 import random
 
 from nes_py.wrappers import JoypadSpace
@@ -16,7 +17,9 @@ Things you tried
 -changed action space
 '''
 
-file_name = 'simple_custom_reward_improved_x_high_alpha_changed_q_value.txt'
+# TODO: actions are actually right and jump not simple
+file_name = 'custom_score_right_low_alpha.txt'
+
 
 def make_state(info):
     return str(info["x_pos"]) + " , " + str(info["y_pos"])
@@ -27,7 +30,7 @@ def custom_reward(info: dict):
         return 200000
 
     total = 0
-    total += 1/5000 * ((info["x_pos"] - 40) ** 2)
+    total += 1 / 1000 * ((info["x_pos"] - 40) ** 2)
     total += info['score'] / 100
     total += info['coins'] * 10
 
@@ -36,11 +39,16 @@ def custom_reward(info: dict):
 
 class ValueIterationAgent:
 
-    def __init__(self, env, discount=0.9, iterations=1000):
+    def __init__(self, env, alpha = .1, gamma = .95, epsilon = .1, iterations=1000):
 
         self.env = env
-        self.discount = discount
+        self.alpha = alpha
+        self.gamma = gamma
+        self.epsilon = epsilon
         self.iterations = iterations
+        self.holding_down = (False, None, 10)
+        self.prev_score = 0
+        
         try:
             values = json.load(open(file_name))
             self.q_values = Counter()
@@ -51,6 +59,19 @@ class ValueIterationAgent:
 
         self.valueIteration()
 
+    def custom_score_reward(self, info, reward):
+        reward += (info['score'] - self.prev_score) / 40.0
+        self.prev_score = info['score']
+
+        return reward
+    
+    def epsilon_greedy_action(self):
+        # epsilon greedy
+        if random.uniform(0, 1) < self.epsilon:
+            return random.randrange(0, self.env.action_space.n)
+        else:
+            return self.getAction()
+
     def valueIteration(self):
 
         actions = self.env.unwrapped.get_action_meanings()
@@ -60,10 +81,6 @@ class ValueIterationAgent:
         # print(self.q_values)
         #   help(self.env.unwrapped)
 
-        # Hyperparameters
-        alpha = .1
-        gamma = 0.95
-        epsilon = 0.1
 
         # For plotting metrics
         epochs = []
@@ -78,15 +95,17 @@ class ValueIterationAgent:
             iteration = 1
             detect = -1
 
-            if i == 1000:
-                x = 5
             while not done:
 
-                if random.uniform(0, 1) < epsilon:
-                    action = random.randrange(0, self.env.action_space.n)
-
+                # choose action
+                if self.holding_down[0]:
+                    action = self.holding_down[1]
+                    if self.holding_down[2] == 0:
+                        self.holding_down = (False, None, 30)
+                    else:
+                        self.holding_down = (True, self.holding_down[1], self.holding_down[2] - 1)
                 else:
-                    action = self.getAction()
+                    action = self.epsilon_greedy_action()
 
                 try:
                     next_state, reward, done, info = self.env.step(action)
@@ -109,20 +128,20 @@ class ValueIterationAgent:
 
                 # implement q learning
                 key = str((state, action))
-                
+
                 old_value = self.q_values[key]
 
                 next_max = self.getMaxValue()
-                
+
                 # Q(s, a) <- Q(s, a) + alpha * (reward + discount * max(Q(s', a')) - Q(s, a))
-                self.q_values[key] = old_value + alpha * (reward + gamma * next_max - old_value)
-                #self.q_values[key] = (1-alpha) * old_value + alpha * (reward + gamma * next_max)
+                # self.q_values[key] = old_value + alpha * (reward + gamma * next_max - old_value)
+                self.q_values[key] = (1 - self.alpha) * old_value + self.alpha * (reward + self.gamma * next_max)
 
                 # print(self.q_values[str((state, action))])
                 state = next_state
                 iteration += 1
 
-                #self.env.render()
+                self.env.render()
 
                 x_s.add(info["x_pos"])
             epochs.append((i, reward))
@@ -142,9 +161,7 @@ class ValueIterationAgent:
         with open(file_name, 'w') as convert_file:
             convert_file.write(json.dumps(self.q_values))
 
-
-
-        with open(file_name+"x_s.txt", 'w') as f:
+        with open(file_name + "x_s.txt", 'w') as f:
             for item in x_s:
                 f.write("%s\n" % item)
 
@@ -154,23 +171,29 @@ class ValueIterationAgent:
         next_max = float('-inf')
         best_action = 2
         env_copy = copy.copy(fake_env)
+
         n = self.env.action_space.n
         for trying in range(n):
             env = env_copy
             try:
                 _, _, _, y = env.step(trying)
                 key = str((make_state(y), trying))
-                if self.q_values[key] >= next_max:
+                if self.q_values[key] > next_max:
                     next_max = self.q_values[key]
                     best_action = trying
             except:
                 continue
+
+        if self.try_hold(env_copy) > next_max:
+            self.holding_down = (True, self.env.action_space.n-1, 30)
+            return self.env.action_space.n-1
 
         return best_action
 
     def getMaxValue(self):
         largest = float('-inf')
         env_copy = copy.copy(self.env)
+
         n = self.env.action_space.n
         for trying in range(n):
             env = env_copy
@@ -179,5 +202,17 @@ class ValueIterationAgent:
                 largest = max(largest, self.q_values[str((make_state(y), trying))])
             except ValueError:
                 continue
-
-        return largest
+            
+        return largest if largest > self.try_hold(env_copy) else self.try_hold(env_copy)
+    
+    def try_hold(self, env):
+        env_copy = copy.copy(env)
+        total = 0
+        for _ in range(10):
+            try:
+                _, _, _, y = env_copy.step(self.env.action_space.n - 1)
+                value = custom_reward(y)
+                total += value
+            except ValueError:
+                continue
+        return total / 10

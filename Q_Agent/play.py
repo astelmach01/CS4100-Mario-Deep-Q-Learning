@@ -12,6 +12,7 @@ episodes = 100
 def play_q(env: JoypadSpace, args, actions):
     for _ in range(episodes):
         
+        environment = None
         if actions == None:
             actions = env.action_space.n
         else:
@@ -26,7 +27,6 @@ def play_q(env: JoypadSpace, args, actions):
                 if done:
                     _ = environment.reset()
 
-                # double check this actually gets right action from dict
                 action = agent.getAction(environment)
                 _, _, done, info = environment.step(action)
                 environment.render()
