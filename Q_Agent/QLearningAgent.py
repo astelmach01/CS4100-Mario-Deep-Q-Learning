@@ -18,7 +18,7 @@ Things you tried
 '''
 
 # TODO: actions are actually right and jump not simple
-file_name = 'custom_score_right_medium_alpha.txt'
+file_name = 'custom_score_right_high_alpha.txt'
 
 
 def make_state(info):
@@ -39,7 +39,7 @@ def custom_reward(info: dict):
 
 class ValueIterationAgent:
 
-    def __init__(self, env, alpha = .5, gamma = .95, epsilon = .1, iterations=1000):
+    def __init__(self, env, alpha = .9, gamma = .95, epsilon = .1, iterations=1000):
 
         self.env: JoypadSpace = env
         self.alpha: float = alpha
@@ -90,7 +90,7 @@ class ValueIterationAgent:
 
         x_s = set()
         # changed reward range to -100, 100
-        for i in range(1, 20000):
+        for i in range(1, 10000):
             state = self.env.reset()
             state = hash(str(state))
             done = False
@@ -143,13 +143,14 @@ class ValueIterationAgent:
                 state = next_state
                 iteration += 1
 
-                self.env.render()
+                #self.env.render()
+                
 
                 x_s.add(info["x_pos"])
             epochs.append((i, reward))
 
             if info["x_pos"] > 722:
-                print("Iteration " + str(i) + ": " +
+                print("Iteration " + str(i) + ": x_pos = " +
                       str(info["x_pos"]) + ". Reward: " + str(reward))
 
             else:
@@ -188,7 +189,7 @@ class ValueIterationAgent:
                 continue
 
         if self.try_hold(env_copy) > next_max:
-            self.holding_down = (True, self.env.action_space.n-1, 10)
+            self.holding_down = (True, self.env.action_space.n-1, 20)
             return self.env.action_space.n-1
 
         return best_action
@@ -214,10 +215,12 @@ class ValueIterationAgent:
         #TODO make this better by choosing the actions in the best holding frame amount
         env_copy = copy.copy(environmnent)
         value = 0
-        for _ in range(10):
+        for _ in range(20):
             try:
-                _, _, _, y = env_copy.step(self.env.action_space.n - 1)
+                _, _, done, y = env_copy.step(self.env.action_space.n - 1)
                 value = custom_reward(y)
+                if done:
+                    return value
             except ValueError:
-                continue
+                return value
         return value
