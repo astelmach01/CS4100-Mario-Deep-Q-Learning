@@ -18,7 +18,7 @@ Things you tried
 '''
 
 # TODO: actions are actually right and jump not simple
-file_name = 'custom_score_right_high_alpha.txt'
+file_name = 'q_tables\custom_score_right_high_alpha.txt'
 
 
 def make_state(info):
@@ -30,7 +30,7 @@ def custom_reward(info: dict):
         return 200000
 
     total = 0
-    total += 1 / 1000 * ((info["x_pos"] - 40) ** 2)
+    total += 1/100 * (1 / 1000 * ((info["x_pos"] - 40) ** 2))
     total += info['score'] / 100
     total += info['coins'] * 10
 
@@ -39,7 +39,7 @@ def custom_reward(info: dict):
 
 class ValueIterationAgent:
 
-    def __init__(self, env, alpha = .9, gamma = .95, epsilon = .1, iterations=1000):
+    def __init__(self, env: JoypadSpace, alpha=.5, gamma=.95, epsilon=.1, iterations=7500):
 
         self.env: JoypadSpace = env
         self.alpha: float = alpha
@@ -51,11 +51,12 @@ class ValueIterationAgent:
 
         self.prev_score = 0
 
+        # try to load in q table from previously written text file
         try:
             values = json.load(open(file_name))
             self.q_values = Counter()
-            for value in values.keys():
-                self.q_values[value] = float(values[value])
+            for key, value in values.items():
+                self.q_values[key] = float(value)
         except:
             self.q_values = Counter()
 
@@ -83,19 +84,21 @@ class ValueIterationAgent:
         # print(self.q_values)
         #   help(self.env.unwrapped)
 
-
         # For plotting metrics
         epochs = []
         num_done_well = 0
 
         x_s = set()
         # changed reward range to -100, 100
-        for i in range(1, 10000):
+        for i in range(1, self.iterations):
             state = self.env.reset()
             state = hash(str(state))
             done = False
             iteration = 1
             detect = -1
+
+            if i == 100:
+                x = 5
 
             while not done:
 
@@ -143,8 +146,7 @@ class ValueIterationAgent:
                 state = next_state
                 iteration += 1
 
-                #self.env.render()
-                
+                # self.env.render()
 
                 x_s.add(info["x_pos"])
             epochs.append((i, reward))
@@ -171,7 +173,7 @@ class ValueIterationAgent:
     def getAction(self, fake_env: JoypadSpace = 1):
         if fake_env == 1:
             fake_env = self.env
-            
+
         next_max = float('-inf')
         best_action = 2
         env_copy = copy.copy(fake_env)
@@ -189,8 +191,8 @@ class ValueIterationAgent:
                 continue
 
         if self.try_hold(env_copy) > next_max:
-            self.holding_down = (True, self.env.action_space.n-1, 20)
-            return self.env.action_space.n-1
+            self.holding_down = (True, self.env.action_space.n - 1, 20)
+            return self.env.action_space.n - 1
 
         return best_action
 
@@ -209,10 +211,10 @@ class ValueIterationAgent:
 
         return largest if largest > self.try_hold() else self.try_hold()
 
-    def try_hold(self, environmnent = None):  
+    def try_hold(self, environmnent=None):
         if environmnent is None:
             environmnent = self.env
-        #TODO make this better by choosing the actions in the best holding frame amount
+        # TODO make this better by choosing the actions in the best holding frame amount
         env_copy = copy.copy(environmnent)
         value = 0
         for _ in range(20):

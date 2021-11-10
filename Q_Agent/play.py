@@ -9,6 +9,9 @@ episodes = 100
 
 
 def play_q(env: JoypadSpace, args, actions):
+    
+    agent = ValueIterationAgent(env)
+    
     for _ in range(episodes):
         
         environment = None
@@ -18,7 +21,7 @@ def play_q(env: JoypadSpace, args, actions):
             environment = JoypadSpace(gym.make(args.env), actions)
             environment.reset()
             
-        agent = ValueIterationAgent(env)
+        
 
         try:
             done = False
