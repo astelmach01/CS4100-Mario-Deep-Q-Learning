@@ -11,6 +11,7 @@ from Q_Agent.util import Counter
 '''
 Things you tried
 -removed time space
+- changed state
 -custom reward function
 -changed bounds of reward
 -special rewards
@@ -42,11 +43,15 @@ class ValueIterationAgent:
     def __init__(self, env: JoypadSpace, alpha=.5, gamma=.95, epsilon=.1, iterations=7500):
 
         self.env: JoypadSpace = env
-        self.alpha: float = alpha
+        self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
         self.iterations = iterations
-        self.max_steps_per_hold = 15
+        self.max_steps_per_hold = 50 # hold down button for [0, max_steps_per_hold] frames
+        
+        # first value = if u should take action of holding down button
+        # second value = whatever button ur holding down
+        # third value = how many frames u should hold down
         self.holding_down = (False, None, self.max_steps_per_hold)
 
         self.prev_score = 0
@@ -77,8 +82,6 @@ class ValueIterationAgent:
 
     def valueIteration(self):
 
-        actions = self.env.unwrapped.get_action_meanings()
-        print(actions)
         print(self.env.get_keys_to_action())
         print("number of actions: " + str(self.env.action_space.n))
         # print(self.q_values)
@@ -88,46 +91,54 @@ class ValueIterationAgent:
         epochs = []
         num_done_well = 0
 
+        # keeping track of the x values we've hit
         x_s = set()
         # changed reward range to -100, 100
         for i in range(1, self.iterations):
             state = self.env.reset()
             state = hash(str(state))
-            done = False
+            
+            done = False # if you died and have 0 lives left
+            
+            # used to end game early
             iteration = 1
             detect = -1
-
-            if i == 100:
-                x = 5
 
             while not done:
 
                 # choose action
+                
+                # if we're holding down a button
                 if self.holding_down[0]:
                     action = self.holding_down[1]
                     if self.holding_down[2] == 0:
-                        self.holding_down = (False, None, 50)
+                        self.holding_down = (False, None, None)
                     else:
                         self.holding_down = (True, self.holding_down[1], self.holding_down[2] - 1)
+                        
+                # if not holding down a button
                 else:
                     action = self.epsilon_greedy_action()
 
                 try:
                     next_state, reward, done, info = self.env.step(action)
                     reward = round(custom_reward(info), 5)
-                    # check values of reward for no clipping
 
+                # if the game is over
                 except:
                     break
 
                 next_state = make_state(info)
 
+                # check if you've been in same x position for a while
+                # and if so, end game early
                 if iteration % 20 == 0:
                     if detect == info["x_pos"]:
                         # reward *= -2
                         done = True
                     detect = info["x_pos"]
 
+                # amount of times we've gotten past 2nd pipe
                 if info["x_pos"] > 600:
                     num_done_well += 1
 
@@ -139,29 +150,27 @@ class ValueIterationAgent:
                 next_max = self.getMaxValue()
 
                 # Q(s, a) <- Q(s, a) + alpha * (reward + discount * max(Q(s', a')) - Q(s, a))
-                # self.q_values[key] = old_value + alpha * (reward + gamma * next_max - old_value)
-                self.q_values[key] = (1 - self.alpha) * old_value + self.alpha * (reward + self.gamma * next_max)
+                self.q_values[key] = old_value + self.alpha * (reward + self.gamma * next_max - old_value)
+                # self.q_values[key] = (1 - self.alpha) * old_value + self.alpha * (reward + self.gamma * next_max)
 
                 # print(self.q_values[str((state, action))])
                 state = next_state
                 iteration += 1
 
-                # self.env.render()
+                self.env.render()
 
                 x_s.add(info["x_pos"])
             epochs.append((i, reward))
 
-            if info["x_pos"] > 722:
-                print("Iteration " + str(i) + ": x_pos = " +
-                      str(info["x_pos"]) + ". Reward: " + str(reward))
 
-            else:
-                print("Iteration " + str(i) + ". Reward: " + str(reward))
+            print("Iteration " + str(i) + ": x_pos = " + str(info["x_pos"]) + ". Reward: " + str(reward))
+
 
         print("Training finished.\n")
         print("Largest x_pos: " + str(max(x_s)))
         print("Num done well: " + str(num_done_well))
 
+        # write q table to file
         self.q_values = dict((''.join(str(k)), str(v)) for k, v in self.q_values.items())
         with open(file_name, 'w') as convert_file:
             convert_file.write(json.dumps(self.q_values))
@@ -175,21 +184,24 @@ class ValueIterationAgent:
             fake_env = self.env
 
         next_max = float('-inf')
-        best_action = 2
+        best_action = 0
         env_copy = copy.copy(fake_env)
 
         n = self.env.action_space.n
         for trying in range(n):
+            # env mutates
             env = env_copy
             try:
                 _, _, _, y = env.step(trying)
                 key = str((make_state(y), trying))
+                
                 if self.q_values[key] > next_max:
                     next_max = self.q_values[key]
                     best_action = trying
             except:
                 continue
 
+        # if holding down a button is better than just hitting one button
         if self.try_hold(env_copy) > next_max:
             self.holding_down = (True, self.env.action_space.n - 1, 20)
             return self.env.action_space.n - 1
@@ -201,11 +213,11 @@ class ValueIterationAgent:
         env_copy = copy.copy(self.env)
 
         n = self.env.action_space.n
-        for trying in range(n):
+        for action in range(n):
             env = env_copy
             try:
-                _, _, _, y = env.step(trying)
-                largest = max(largest, self.q_values[str((make_state(y), trying))])
+                _, _, _, y = env.step(action)
+                largest = max(largest, self.q_values[str((make_state(y), action))])
             except ValueError:
                 continue
 
