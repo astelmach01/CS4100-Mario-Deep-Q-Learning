@@ -61,7 +61,6 @@ def main():
     env = gym.make(args.env)
     # wrap the environment with an action space if specified
     if args.actionspace != 'nes':
-        print(args.actionspace)
         # unwrap the actions list by key
         actions = _ACTION_SPACES[args.actionspace]
         # wrap the environment with the new action space
@@ -72,10 +71,8 @@ def main():
     if args.mode == 'random':
         play_random(env, args.steps)
     if args.mode == 'q':
-        try:
-            play_q(env, args, actions)
-        except:
-            play_q(env, args, None)
+        play_q(env, args, actions)
+
 
 
 # explicitly define the outward facing API of this module

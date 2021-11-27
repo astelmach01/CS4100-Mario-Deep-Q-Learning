@@ -21,8 +21,15 @@ Things you tried
 # TODO: actions are actually right and jump not simple
 file_name = 'q_tables\custom_score_right_high_alpha.txt'
 
+envs = []
+
+
 def deepcopy(env, actions):
-    return JoypadSpace(copy.deepcopy(env.unwrapped), actions)
+    try:
+        return JoypadSpace(copy.deepcopy(env.unwrapped), actions)
+    except:
+        x = envs[0].unwrapped == envs[1].unwrapped
+        t = 6
 
 
 def make_state(info):
@@ -34,7 +41,7 @@ def custom_reward(info: dict):
         return 200000
 
     total = 0
-    total += 1/100 * (1 / 1000 * ((info["x_pos"] - 40) ** 2))
+    total += 1 / 100 * (1 / 1000 * ((info["x_pos"] - 40) ** 2))
     total += info['score'] / 100
     total += info['coins'] * 10
 
@@ -47,12 +54,13 @@ class ValueIterationAgent:
 
         self.env: JoypadSpace = env
         self.actions = actions
+
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
         self.iterations = iterations
-        self.max_steps_per_hold = 50 # hold down button for [0, max_steps_per_hold] frames
-        
+        self.max_steps_per_hold = 50  # hold down button for [0, max_steps_per_hold] frames
+
         # first value = if u should take action of holding down button
         # second value = whatever button ur holding down
         # third value = how many frames u should hold down
@@ -101,17 +109,18 @@ class ValueIterationAgent:
         for i in range(1, self.iterations):
             state = self.env.reset()
             state = hash(str(state))
-            
-            done = False # if you died and have 0 lives left
-            
+
+            done = False  # if you died and have 0 lives left
+
             # used to end game early
             iteration = 1
             detect = -1
 
             while not done:
+                envs.append(self.env)
 
                 # choose action
-                
+
                 # if we're holding down a button
                 if self.holding_down[0]:
                     action = self.holding_down[1]
@@ -119,7 +128,7 @@ class ValueIterationAgent:
                         self.holding_down = (False, None, None)
                     else:
                         self.holding_down = (True, self.holding_down[1], self.holding_down[2] - 1)
-                        
+
                 # if not holding down a button
                 else:
                     action = self.epsilon_greedy_action()
@@ -161,14 +170,12 @@ class ValueIterationAgent:
                 state = next_state
                 iteration += 1
 
-                self.env.render()
+                # self.env.render()
 
                 x_s.add(info["x_pos"])
             epochs.append((i, reward))
 
-
             print("Iteration " + str(i) + ": x_pos = " + str(info["x_pos"]) + ". Reward: " + str(reward))
-
 
         print("Training finished.\n")
         print("Largest x_pos: " + str(max(x_s)))
@@ -189,7 +196,7 @@ class ValueIterationAgent:
 
         next_max = float('-inf')
         best_action = 0
-        env_copy = copy.copy(fake_env)
+        env_copy = deepcopy(self.env, self.actions)
 
         n = self.env.action_space.n
         for trying in range(n):
@@ -198,7 +205,7 @@ class ValueIterationAgent:
             try:
                 _, _, _, y = env.step(trying)
                 key = str((make_state(y), trying))
-                
+
                 if self.q_values[key] > next_max:
                     next_max = self.q_values[key]
                     best_action = trying
@@ -214,26 +221,25 @@ class ValueIterationAgent:
 
     def getMaxValue(self):
         largest = float('-inf')
-        env_copy = copy.copy(self.env)
-        x: JoypadSpace = deepcopy(self.env, self.actions)
-        n = self.env.action_space.n
-        for action in range(n):
+        env_copy = deepcopy(self.env, self.actions)
+
+        for action in range(self.env.action_space.n):
             env = env_copy
-            print(x.observation_space())
+
             try:
                 _, _, _, y = env.step(action)
                 largest = max(largest, self.q_values[str((make_state(y), action))])
             except ValueError:
                 continue
-        
-        exit()
+
         return largest if largest > self.try_hold() else self.try_hold()
 
-    def try_hold(self, environmnent=None):
-        if environmnent is None:
-            environmnent = self.env
+    def try_hold(self, environment=None):
+        if environment is None:
+            environment = self.env
+
         # TODO make this better by choosing the actions in the best holding frame amount
-        env_copy = copy.copy(environmnent)
+        env_copy = deepcopy(self.env, self.actions)
         value = 0
         for _ in range(20):
             try:

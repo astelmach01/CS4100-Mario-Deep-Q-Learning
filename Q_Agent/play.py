@@ -4,18 +4,18 @@ import gym
 from nes_py.wrappers import JoypadSpace
 
 from Q_Agent.QLearningAgent import ValueIterationAgent
-import copy
+
 episodes = 100
 
 
 def play_q(env: JoypadSpace, args, actions):
     """Play the game using the Q-learning agent."""
     agent = ValueIterationAgent(env, actions)
-    
+
     for _ in range(episodes):
         
         environment = None
-        if actions == None:
+        if actions is None:
             actions = env.action_space.n
         else:
             environment = JoypadSpace(gym.make(args.env), actions)
