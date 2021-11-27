@@ -21,6 +21,9 @@ Things you tried
 # TODO: actions are actually right and jump not simple
 file_name = 'q_tables\custom_score_right_high_alpha.txt'
 
+def deepcopy(env, actions):
+    return JoypadSpace(copy.deepcopy(env.unwrapped), actions)
+
 
 def make_state(info):
     return str(info["x_pos"]) + " , " + str(info["y_pos"])
@@ -40,9 +43,10 @@ def custom_reward(info: dict):
 
 class ValueIterationAgent:
 
-    def __init__(self, env: JoypadSpace, alpha=.5, gamma=.95, epsilon=.1, iterations=7500):
+    def __init__(self, env: JoypadSpace, actions, alpha=.5, gamma=.95, epsilon=.1, iterations=7500):
 
         self.env: JoypadSpace = env
+        self.actions = actions
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
@@ -211,16 +215,18 @@ class ValueIterationAgent:
     def getMaxValue(self):
         largest = float('-inf')
         env_copy = copy.copy(self.env)
-
+        x: JoypadSpace = deepcopy(self.env, self.actions)
         n = self.env.action_space.n
         for action in range(n):
             env = env_copy
+            print(x.observation_space())
             try:
                 _, _, _, y = env.step(action)
                 largest = max(largest, self.q_values[str((make_state(y), action))])
             except ValueError:
                 continue
-
+        
+        exit()
         return largest if largest > self.try_hold() else self.try_hold()
 
     def try_hold(self, environmnent=None):
