@@ -160,8 +160,12 @@ class ValueIterationAgent:
 
         # write q table to file
         self.q_values = dict((''.join(str(k)), str(v)) for k, v in self.q_values.items())
-        with open(file_name, 'w') as convert_file:
-            convert_file.write(json.dumps(self.q_values))
+
+        try:
+            with open(file_name, 'w') as convert_file:
+                convert_file.write(json.dumps(self.q_values))
+        except:
+            q = 2
 
         with open(file_name + "x_s.txt", 'w') as f:
             for item in x_s:
