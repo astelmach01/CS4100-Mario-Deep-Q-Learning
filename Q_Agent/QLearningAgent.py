@@ -69,7 +69,7 @@ class ValueIterationAgent:
         #     self.q_values = Counter()
 
         # 90,000 x num_actions
-        self.q_values = np.zeros([90000, self.env.action_space.n])
+        self.q_values = Counter(self.env.action_space.n)
 
         self.valueIteration()
 
@@ -129,11 +129,11 @@ class ValueIterationAgent:
 
 
                 # implement q learning
-                old_value = self.q_values[state, action]
+                old_value = self.q_values[state][action]
                 next_max = self.get_max_value(next_state)
 
                 # Q(s, a) <- Q(s, a) + alpha * (reward + discount * max(Q(s', a')) - Q(s, a))
-                self.q_values[state, action] = old_value + self.alpha * (reward + self.gamma * next_max - old_value)
+                self.q_values[state][action] = old_value + self.alpha * (reward + self.gamma * next_max - old_value)
 
                 state = next_state
                 iteration += 1
