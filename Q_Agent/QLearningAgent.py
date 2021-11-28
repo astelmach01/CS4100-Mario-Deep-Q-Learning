@@ -41,14 +41,17 @@ def custom_reward(info: dict):
 
 class ValueIterationAgent:
 
-    def __init__(self, env: JoypadSpace, actions, alpha=.5, gamma=.95, epsilon=.1, iterations=7500):
+    def __init__(self, env: JoypadSpace, actions, alpha=.5, gamma=.95, exploration_rate=1, exploration_rate_min=.1,
+                 exploration_rate_decay=0.99999975, iterations=7500):
 
         self.env: JoypadSpace = env
         self.actions = actions
 
         self.alpha = alpha
         self.gamma = gamma
-        self.epsilon = epsilon
+        self.exploration_rate = exploration_rate
+        self.exploration_rate_min = exploration_rate_min
+        self.exploration_rate_decay = exploration_rate_decay
         self.iterations = iterations
         self.max_steps_per_hold = 50  # hold down button for [0, max_steps_per_hold] frames
 
@@ -68,7 +71,6 @@ class ValueIterationAgent:
         # except:
         #     self.q_values = Counter()
 
-        # 90,000 x num_actions
         self.q_values = Counter(self.env.action_space.n)
 
         self.valueIteration()
@@ -81,10 +83,15 @@ class ValueIterationAgent:
 
     def epsilon_greedy_action(self, state):
         # epsilon greedy
-        if random.uniform(0, 1) < self.epsilon:
-            return random.randrange(0, self.env.action_space.n)
+        action = None
+        if random.uniform(0, 1) < self.exploration_rate:
+            action = random.randrange(0, self.env.action_space.n)
         else:
-            return self.get_action(state)
+            action = self.get_action(state)
+        self.exploration_rate *= self.exploration_rate_decay
+        self.exploration_rate = max(self.exploration_rate_min, self.exploration_rate)
+
+        return action
 
     def valueIteration(self):
 
@@ -121,16 +128,15 @@ class ValueIterationAgent:
 
                 # check if you've been in same x position for a while
                 # and if so, end game early
-                if iteration % 20 == 0:
-                    if detect == info["x_pos"]:
-                        # reward *= -2
-                        done = True
-                    detect = info["x_pos"]
-
+                # if iteration % 50 == 0:
+                #     if detect == info["x_pos"]:
+                #         # reward *= -2
+                #         done = True
+                #     detect = info["x_pos"]
 
                 # implement q learning
                 old_value = self.q_values[state][action]
-                next_max = self.get_max_value(next_state)
+                next_max = self.get_max_value(next_state, i)
 
                 # Q(s, a) <- Q(s, a) + alpha * (reward + discount * max(Q(s', a')) - Q(s, a))
                 self.q_values[state][action] = old_value + self.alpha * (reward + self.gamma * next_max - old_value)
@@ -147,7 +153,8 @@ class ValueIterationAgent:
                 x_s.add(info["x_pos"])
             epochs.append((i, reward))
 
-            print("Iteration " + str(i) + ": x_pos = " + str(info["x_pos"]) + ". Reward: " + str(reward))
+            print("Iteration " + str(i) + ": x_pos = " + str(info["x_pos"]) + ". Reward: " + str(
+                reward) + ". Q-value: " + str(self.q_values[state][action]))
 
         print("Training finished.\n")
         print("Largest x_pos: " + str(max(x_s)))
@@ -163,7 +170,11 @@ class ValueIterationAgent:
                 f.write("%s\n" % item)
 
     def get_action(self, state):
-        return np.argmax(self.q_values[state])
+        x = self.q_values[state]
+        return np.argmax(x)
 
-    def get_max_value(self, state):
-        return np.max(self.q_values[state])
+    def get_max_value(self, state, i):
+        if i > 50:
+            t = 6
+        x = self.q_values[state]
+        return np.max(x)
