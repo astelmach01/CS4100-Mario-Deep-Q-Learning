@@ -82,8 +82,6 @@ class ValueIterationAgent:
         return reward
 
     def epsilon_greedy_action(self, state):
-        # epsilon greedy
-        action = None
         if random.uniform(0, 1) < self.exploration_rate:
             action = random.randrange(0, self.env.action_space.n)
         else:
