@@ -24,7 +24,7 @@ file_name = 'q_tables\custom_score_right_high_alpha.txt'
 
 
 def make_state(info):
-    return str(info["x_pos"]) + " , " + str(info["y_pos"])
+    return str(info["x_pos"]) + "," + str(info["y_pos"])
 
 
 def custom_reward(info: dict):
@@ -142,7 +142,7 @@ class ValueIterationAgent:
                 state = next_state
                 iteration += 1
 
-                self.env.render()
+                # self.env.render()
 
                 # amount of times we've gotten past 2nd pipe
                 if info["x_pos"] > 600:
