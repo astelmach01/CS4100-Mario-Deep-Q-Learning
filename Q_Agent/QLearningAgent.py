@@ -17,10 +17,10 @@ Things you tried
 -changed bounds of reward
 -special rewards
 -changed action space
--declining exploiration rate/epsilon
+-declining exploration rate/epsilon
 '''
 
-file_name = 'q_tables\custom_score_high_alpha_high_gamma.txt'
+file_name = 'q_tables\custom_score_low_alpha_high_gamma.txt'
 
 
 def make_state(info):
@@ -41,7 +41,7 @@ def custom_reward(info: dict):
 
 class ValueIterationAgent:
 
-    def __init__(self, env: JoypadSpace, actions, alpha=.9, gamma=.9, exploration_rate=1, exploration_rate_min=.1,
+    def __init__(self, env, actions, alpha=.1, gamma=.9, exploration_rate=1, exploration_rate_min=.1,
                  exploration_rate_decay=0.999999972, iterations=10000):
 
         self.env: JoypadSpace = env
@@ -49,12 +49,15 @@ class ValueIterationAgent:
 
         self.alpha = alpha
         self.gamma = gamma
+
+        # with a decay rate of 0.999999972, it takes 100 iterations to go down by 0.4 of the epsilon
         self.exploration_rate = exploration_rate
         self.exploration_rate_min = exploration_rate_min
         self.exploration_rate_decay = exploration_rate_decay
+
         self.iterations = iterations
         self.prev_score = 0
-        
+
         self.starting_state = None
 
         # try to load in q table from previously written text file
@@ -81,6 +84,7 @@ class ValueIterationAgent:
             action = random.choices([act for act in range(self.env.action_space.n)], weights=(1, 2), k=1)[0]
         else:
             action = self.get_action(state)
+
         self.exploration_rate *= self.exploration_rate_decay
         self.exploration_rate = max(self.exploration_rate_min, self.exploration_rate)
 
@@ -94,7 +98,6 @@ class ValueIterationAgent:
         #   help(self.env.unwrapped)
 
         # For plotting metrics
-        epochs = []
         num_done_well = 0
 
         # keeping track of the x values we've hit
@@ -132,7 +135,7 @@ class ValueIterationAgent:
                 old_value = self.q_values[state][action]
                 next_max = self.get_max_value(next_state)
 
-                # Q(s, a) <- Q(s, a) + alpha * (reward + discount * max(Q(s', a')) - Q(s, a))
+                # Q(s, a) <-------------------- Q(s, a) +       alpha * (reward + discount * max(Q(s', a')) - Q(s, a))
                 self.q_values[state][action] = old_value + self.alpha * (reward + self.gamma * next_max - old_value)
 
                 state = next_state
@@ -145,8 +148,7 @@ class ValueIterationAgent:
                     num_done_well += 1
 
                 x_s.add(info["x_pos"])
-            epochs.append((i, reward))
-
+                
             print("Iteration " + str(i) + ": x_pos = " + str(info["x_pos"]) + ". Reward: " + str(
                 reward) + ". Q-value: " + str(self.q_values[state][action]) + ". Epsilon: " + str(
                 self.exploration_rate))
