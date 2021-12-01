@@ -20,7 +20,7 @@ Things you tried
 -declining exploration rate/epsilon
 '''
 
-file_name = 'q_tables\custom_score_low_alpha_high_gamma.txt'
+file_name = 'q_tables\only_finish_reward_low_alpha_high_gamma.txt'
 
 
 def make_state(info):
@@ -37,6 +37,13 @@ def custom_reward(info: dict):
     total += info['coins'] * 10
 
     return total
+
+
+def only_finish_reward(info):
+    if info["flag_get"]:
+        return 10000
+
+    return 0
 
 
 class ValueIterationAgent:
@@ -81,7 +88,7 @@ class ValueIterationAgent:
 
     def epsilon_greedy_action(self, state):
         if random.uniform(0, 1) < self.exploration_rate:
-            action = random.choices([act for act in range(self.env.action_space.n)], weights=(1, 2), k=1)[0]
+            action = random.randint(0, self.env.action_space.n - 1)
         else:
             action = self.get_action(state)
 
@@ -121,7 +128,7 @@ class ValueIterationAgent:
                 next_state, reward, done, info = self.env.step(action)
 
                 next_state = make_state(info)
-                reward = round(custom_reward(info), 5)
+                reward = only_finish_reward(info)
 
                 # check if you've been in same x position for a while
                 # and if so, end game early
@@ -141,7 +148,7 @@ class ValueIterationAgent:
                 state = next_state
                 iteration += 1
 
-                # self.env.render()
+                self.env.render()
 
                 # amount of times we've gotten past 3rd pipe
                 if info["x_pos"] > 730:
