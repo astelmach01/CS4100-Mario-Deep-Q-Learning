@@ -20,7 +20,7 @@ Things you tried
 -declining exploration rate/epsilon
 '''
 
-file_name = 'q_tables\only_finish_reward_low_alpha_high_gamma.txt'
+file_name = 'q_tables\\regular_reward_low_alpha_high_gamma.txt'
 
 
 def make_state(info):
@@ -40,10 +40,7 @@ def custom_reward(info: dict):
 
 
 def only_finish_reward(info):
-    if info["flag_get"]:
-        return 10000
-
-    return 0
+    return 1000 if info["flag_get"] else 0
 
 
 class ValueIterationAgent:
@@ -112,7 +109,7 @@ class ValueIterationAgent:
         # changed reward range to -100, 100
         for i in range(1, self.iterations):
             state = self.env.reset()
-            self.starting_state = state
+            next_state, reward, done, info = self.env.step(0)
 
             done = False  # if you died and have 0 lives left
 
@@ -128,7 +125,6 @@ class ValueIterationAgent:
                 next_state, reward, done, info = self.env.step(action)
 
                 next_state = make_state(info)
-                reward = only_finish_reward(info)
 
                 # check if you've been in same x position for a while
                 # and if so, end game early
@@ -148,7 +144,7 @@ class ValueIterationAgent:
                 state = next_state
                 iteration += 1
 
-                self.env.render()
+                # self.env.render()
 
                 # amount of times we've gotten past 3rd pipe
                 if info["x_pos"] > 730:
