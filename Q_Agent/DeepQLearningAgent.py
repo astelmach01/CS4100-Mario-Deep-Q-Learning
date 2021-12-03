@@ -1,8 +1,13 @@
+import copy
+import random
+from collections import deque
+
 import gym
 from gym.spaces import Box
 from gym.wrappers import *
 import numpy as np
 import os
+from os.path import exists
 import torch
 from torch import nn
 import matplotlib.pyplot as plt
@@ -45,8 +50,7 @@ class ResizeObservation(gym.ObservationWrapper):
         super().__init__(env)
         self.shape = (shape, shape)
         obs_shape = self.shape + self.observation_space.shape[2:]
-        self.observation_space = Box(
-            low=0, high=255, shape=obs_shape, dtype=np.uint8)
+        self.observation_space = Box(low=0, high=255, shape=obs_shape, dtype=np.uint8)
 
     def observation(self, observation):
         transformations = transforms.Compose(
@@ -65,94 +69,137 @@ torch.random.manual_seed(42)
 np.random.seed(42)
 
 
-class MarioSolver:
-    def __init__(self, learning_rate):
-        self.episode_rewards = None
-        self.episode_actions = None
-        self.model = nn.Sequential(
+class DDQNSolver(nn.Module):
+    def __init__(self, output_dim):
+        super().__init__()
+        self.online = nn.Sequential(
             nn.Conv2d(in_channels=4, out_channels=32, kernel_size=8, stride=4),
             nn.ReLU(),
-            nn.Conv2d(in_channels=32, out_channels=64,
-                      kernel_size=4, stride=2),
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=4, stride=2),
             nn.ReLU(),
-            nn.Conv2d(in_channels=64, out_channels=64,
-                      kernel_size=3, stride=1),
+            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1),
             nn.ReLU(),
             nn.Flatten(),
             nn.Linear(3136, 512),
             nn.ReLU(),
-            nn.Linear(512, env.action_space.n),
-            nn.Softmax(dim=-1)
+            nn.Linear(512, output_dim),
         )
-        self.optimizer = torch.optim.Adam(
-            self.model.parameters(), lr=learning_rate, eps=1e-4)
-        self.reset()
+        self.target = copy.deepcopy(self.online)
+        for p in self.target.parameters():
+            p.requires_grad = False
 
-    def forward(self, x):
-        return self.model(x)
+    def forward(self, input, model):
+        if model == "online":
+            return self.online(input)
+        elif model == "target":
+            return self.target(input)
 
-    def reset(self):
-        self.episode_actions = torch.tensor([], requires_grad=True)
+
+class DDQNAgent:
+    def __init__(self, action_dim, save_directory):
+        self.action_dim = action_dim
+        self.save_directory = save_directory
+        self.net = DDQNSolver(self.action_dim).cuda()
+        self.exploration_rate = 1.0
+        self.exploration_rate_decay = 0.99
+        self.exploration_rate_min = 0.01
+        self.current_step = 0
+        self.memory = deque(maxlen=100000)
+        self.batch_size = 32
+        self.gamma = 0.95
+        self.sync_period = 1e4
+        self.optimizer = torch.optim.Adam(self.net.parameters(), lr=0.00025, eps=1e-4)
+        self.loss = torch.nn.SmoothL1Loss()
         self.episode_rewards = []
+        self.moving_average_episode_rewards = []
+        self.current_episode_reward = 0.0
 
-    def save_checkpoint(self, directory, episode):
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-        filename = os.path.join(directory, 'checkpoint_{}.pth'.format(episode))
-        torch.save(self.model.state_dict(), f=filename)
-        print('Checkpoint saved to \'{}\''.format(filename))
+    def log_episode(self):
+        self.episode_rewards.append(self.current_episode_reward)
+        self.current_episode_reward = 0.0
 
-    def load_checkpoint(self, directory, filename):
-        self.model.load_state_dict(torch.load(
-            os.path.join(directory, filename)))
-        print('Resuming training from checkpoint \'{}\'.'.format(filename))
-        return int(filename[11:-4])
+    def log_period(self, episode, epsilon, step):
+        self.moving_average_episode_rewards.append(np.round(
+            np.mean(self.episode_rewards[-checkpoint_period:]), 3))
+        print(f"Episode {episode} - Step {step} - Epsilon {epsilon} "
+              f"- Mean Reward {self.moving_average_episode_rewards[-1]}")
+        plt.plot(self.moving_average_episode_rewards)
+        filename = os.path.join(self.save_directory, f"episode_rewards_plot_{episode}.png")
+        if exists(filename):
+            plt.savefig(filename, format="png")
+        with open(filename, "w"):
+            plt.savefig(filename, format="png")
+        plt.clf()
 
-    def backward(self):
-        future_reward = 0
-        rewards = []
-        for r in self.episode_rewards[::-1]:
-            future_reward = r + gamma * future_reward
-            rewards.append(future_reward)
-        rewards = torch.tensor(rewards[::-1], dtype=torch.float32)
-        rewards = (rewards - rewards.mean()) / \
-                  (rewards.std() + np.finfo(np.float32).eps)
-        loss = torch.sum(torch.mul(self.episode_actions, rewards).mul(-1))
+    def remember(self, state, next_state, action, reward, done):
+        self.memory.append((torch.tensor(state.__array__()), torch.tensor(next_state.__array__()),
+                            torch.tensor([action]), torch.tensor([reward]), torch.tensor([done])))
+
+    def experience_replay(self, step_reward):
+        self.current_episode_reward += step_reward
+        if self.current_step % self.sync_period == 0:
+            self.net.target.load_state_dict(self.net.online.state_dict())
+        if self.batch_size > len(self.memory):
+            return
+        state, next_state, action, reward, done = self.recall()
+        q_estimate = self.net(state.cuda(), model="online")[np.arange(0, self.batch_size), action.cuda()]
+        with torch.no_grad():
+            best_action = torch.argmax(self.net(next_state.cuda(), model="online"), dim=1)
+            next_q = self.net(next_state.cuda(), model="target")[np.arange(0, self.batch_size), best_action]
+            q_target = (reward.cuda() + (1 - done.cuda().float()) * self.gamma * next_q).float()
+        loss = self.loss(q_estimate, q_target)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        self.reset()
+
+    def recall(self):
+        state, next_state, action, reward, done = map(torch.stack,
+                                                      zip(*random.sample(self.memory, self.batch_size)))
+        return state, next_state, action.squeeze(), reward.squeeze(), done.squeeze()
+
+    def act(self, state):
+        if np.random.rand() < self.exploration_rate:
+            action = np.random.randint(self.action_dim)
+        else:
+            action_values = self.net(torch.tensor(state.__array__()).cuda().unsqueeze(0), model="online")
+            action = torch.argmax(action_values, dim=1).item()
+        self.exploration_rate *= self.exploration_rate_decay
+        self.exploration_rate = max(self.exploration_rate_min, self.exploration_rate)
+        self.current_step += 1
+        return action
+
+    def load_checkpoint(self, path):
+        checkpoint = torch.load(path)
+        self.net.load_state_dict(checkpoint['model'])
+        self.exploration_rate = checkpoint['exploration_rate']
+
+    def save_checkpoint(self):
+        filename = os.path.join(self.save_directory, 'checkpoint_{}.pth'.format(episode))
+        torch.save(dict(model=self.net.state_dict(), exploration_rate=self.exploration_rate), f=filename)
+        print('Checkpoint saved to \'{}\''.format(filename))
 
 
-batch_size = 10
-gamma = 0.95
-load_filename = None
-save_directory = "./mario_pg"
-batch_rewards = []
+checkpoint_period = 100
+save_directory = "mario_ql"
+load_checkpoint = "checkpoint_100.pth"
+agent = DDQNAgent(action_dim=env.action_space.n, save_directory=save_directory)
+if load_checkpoint is not None:
+    agent.load_checkpoint(save_directory + "/" + load_checkpoint)
 episode = 0
-
-model = MarioSolver(learning_rate=0.00025)
-if load_filename is not None:
-    episode = model.load_checkpoint(save_directory, load_filename)
-all_episode_rewards = []
-all_mean_rewards = []
-
 while True:
-    observation = env.reset()
-    done = False
-    while not done:
-        env.render()
-        observation = torch.tensor(observation.__array__()).unsqueeze(0)
-        distribution = Categorical(model.forward(observation))
-        action = distribution.sample()
-        observation, reward, done, _ = env.step(action.item())
-        model.episode_actions = torch.cat(
-            [model.episode_actions, distribution.log_prob(action).reshape(1)])
-        model.episode_rewards.append(reward)
+    state = env.reset()
+    while True:
+        action = agent.act(state)
+        if episode > 1000:
+            env.render()
+        next_state, reward, done, info = env.step(action)
+        agent.remember(state, next_state, action, reward, done)
+        agent.experience_replay(reward)
+        state = next_state
         if done:
-            all_episode_rewards.append(np.sum(model.episode_rewards))
-            batch_rewards.append(np.sum(model.episode_rewards))
-            model.backward()
             episode += 1
-            if episode % 50 == 0 and save_directory is not None:
-                model.save_checkpoint(save_directory, episode)
+            agent.log_episode()
+            if episode % checkpoint_period == 0:
+                agent.log_period(episode=episode, epsilon=agent.exploration_rate, step=agent.current_step)
+                agent.save_checkpoint()
+            break
