@@ -144,7 +144,7 @@ class ValueIterationAgent:
                 state = next_state
                 iteration += 1
 
-                # self.env.render()
+                self.env.render()
 
                 # amount of times we've gotten past 3rd pipe
                 if info["x_pos"] > 730:
