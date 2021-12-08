@@ -1,12 +1,10 @@
-import copy
 import json
-import math
-from os import environ
 import random
-import numpy as np
 
+import numpy as np
 from nes_py.wrappers import JoypadSpace
 
+from DeepQLearningAgent import SkipFrame
 from Q_Agent.util import Counter
 
 '''
@@ -48,7 +46,7 @@ class ValueIterationAgent:
     def __init__(self, env, actions, alpha=.1, gamma=.9, exploration_rate=1, exploration_rate_min=.1,
                  exploration_rate_decay=0.999999972, iterations=10000):
 
-        self.env: JoypadSpace = env
+        self.env: SkipFrame = SkipFrame(env, skip=5)
         self.actions = actions
 
         self.alpha = alpha

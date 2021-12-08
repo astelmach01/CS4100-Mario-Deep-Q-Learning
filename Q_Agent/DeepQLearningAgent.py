@@ -1,19 +1,19 @@
 import copy
+import os
 import random
 from collections import deque
+from os.path import exists
 
 import gym
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from gym.spaces import Box
 from gym.wrappers import *
-import numpy as np
-import os
-from os.path import exists
-import torch
-from torch import nn
-import matplotlib.pyplot as plt
 from nes_py.wrappers import JoypadSpace
-from torchvision import transforms
+from torch import nn
 from torch.distributions import *
+from torchvision import transforms
 
 import gym_super_mario_bros
 
@@ -26,7 +26,7 @@ class SkipFrame(gym.Wrapper):
     def step(self, action):
         total_reward = 0.0
         done = False
-        for i in range(self._skip):
+        for _ in range(self._skip):
             obs, reward, done, info = self.env.step(action)
             total_reward += reward
             if done:
@@ -42,7 +42,9 @@ class GrayScaleObservation(gym.ObservationWrapper):
 
     def observation(self, observation):
         transform = transforms.Grayscale()
-        return transform(torch.tensor(np.transpose(observation, (2, 0, 1)).copy(), dtype=torch.float))
+        result = transform(torch.tensor(np.transpose(
+            observation, (2, 0, 1)).copy(), dtype=torch.float))
+        return result
 
 
 class ResizeObservation(gym.ObservationWrapper):
@@ -89,10 +91,7 @@ class DDQNSolver(nn.Module):
             p.requires_grad = False
 
     def forward(self, input, model):
-        if model == "online":
-            return self.online(input)
-        elif model == "target":
-            return self.target(input)
+        return self.online(input) if model == "online" else self.target(input)
 
 
 class DDQNAgent:
@@ -101,7 +100,7 @@ class DDQNAgent:
         self.save_directory = save_directory
         self.net = DDQNSolver(self.action_dim).cuda()
         self.exploration_rate = 1.0
-        self.exploration_rate_decay = 0.99
+        self.exploration_rate_decay = 0.999
         self.exploration_rate_min = 0.01
         self.current_step = 0
         self.memory = deque(maxlen=100000)
@@ -118,13 +117,13 @@ class DDQNAgent:
         self.episode_rewards.append(self.current_episode_reward)
         self.current_episode_reward = 0.0
 
-    def log_period(self, episode, epsilon, step):
+    def log_period(self, episode, epsilon, step, checkpoint_period):
         self.moving_average_episode_rewards.append(np.round(
             np.mean(self.episode_rewards[-checkpoint_period:]), 3))
         print(f"Episode {episode} - Step {step} - Epsilon {epsilon} "
               f"- Mean Reward {self.moving_average_episode_rewards[-1]}")
         plt.plot(self.moving_average_episode_rewards)
-        filename = os.path.join(self.save_directory, f"episode_rewards_plot_{episode}.png")
+        filename = os.path.join(self.save_directory, "episode_rewards_plot.png")
         if exists(filename):
             plt.savefig(filename, format="png")
         with open(filename, "w"):
@@ -137,11 +136,12 @@ class DDQNAgent:
 
     def experience_replay(self, step_reward):
         self.current_episode_reward += step_reward
-        if self.current_step % self.sync_period == 0:
+        if (self.current_step % self.sync_period) == 0:
             self.net.target.load_state_dict(self.net.online.state_dict())
         if self.batch_size > len(self.memory):
             return
         state, next_state, action, reward, done = self.recall()
+        print(self.net(state.cuda(), model="online").shape)
         q_estimate = self.net(state.cuda(), model="online")[np.arange(0, self.batch_size), action.cuda()]
         with torch.no_grad():
             best_action = torch.argmax(self.net(next_state.cuda(), model="online"), dim=1)
@@ -174,32 +174,60 @@ class DDQNAgent:
         self.exploration_rate = checkpoint['exploration_rate']
 
     def save_checkpoint(self):
-        filename = os.path.join(self.save_directory, 'checkpoint_{}.pth'.format(episode))
+        filename = os.path.join(self.save_directory, 'checkpoint.pth')
         torch.save(dict(model=self.net.state_dict(), exploration_rate=self.exploration_rate), f=filename)
         print('Checkpoint saved to \'{}\''.format(filename))
 
 
-checkpoint_period = 100
-save_directory = "mario_ql"
-load_checkpoint = "checkpoint_100.pth"
-agent = DDQNAgent(action_dim=env.action_space.n, save_directory=save_directory)
-if load_checkpoint is not None:
-    agent.load_checkpoint(save_directory + "/" + load_checkpoint)
-episode = 0
-while True:
-    state = env.reset()
+def sweat():
+    episode = 0
+    checkpoint_period = 50
+    save_directory = "mario_ql"
+    load_checkpoint = "checkpoint.pth"
+    agent = DDQNAgent(action_dim=env.action_space.n, save_directory=save_directory)
+    if load_checkpoint is not None:
+        agent.load_checkpoint(save_directory + "/" + load_checkpoint)
+
     while True:
-        action = agent.act(state)
-        if episode > 1000:
+        state = env.reset()
+        while True:
+            action = agent.act(state)
+            # env.render()
+            next_state, reward, done, info = env.step(action)
+            agent.remember(state, next_state, action, reward, done)
+            agent.experience_replay(reward)
+            state = next_state
+            if done:
+                episode += 1
+                agent.log_episode()
+                if episode % checkpoint_period == 0:
+                    agent.save_checkpoint()
+                    agent.log_period(
+                        episode=episode,
+                        epsilon=agent.exploration_rate,
+                        step=agent.current_step,
+                        checkpoint_period=checkpoint_period
+                    )
+                break
+
+
+def play():
+    save_directory = "mario_ql"
+    load_checkpoint = "checkpoint.pth"
+    agent = DDQNAgent(action_dim=env.action_space.n, save_directory=save_directory)
+    if load_checkpoint is not None:
+        agent.load_checkpoint('mario_ql\checkpoint_7400.pth')
+
+    while True:
+        state = env.reset()
+        done = False
+        while not done:
+            action = agent.act(state)
+
+            next_state, reward, done, info = env.step(action)
+            state = next_state
             env.render()
-        next_state, reward, done, info = env.step(action)
-        agent.remember(state, next_state, action, reward, done)
-        agent.experience_replay(reward)
-        state = next_state
-        if done:
-            episode += 1
-            agent.log_episode()
-            if episode % checkpoint_period == 0:
-                agent.log_period(episode=episode, epsilon=agent.exploration_rate, step=agent.current_step)
-                agent.save_checkpoint()
-            break
+
+
+if __name__ == "__main__":
+    sweat()

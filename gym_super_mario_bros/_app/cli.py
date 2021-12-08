@@ -5,9 +5,8 @@ import copy
 from nes_py.wrappers import JoypadSpace
 from nes_py.app.play_human import play_human
 from nes_py.app.play_random import play_random
-from Q_Agent.play import *
+from Q_Agent.play import play_q
 from gym_super_mario_bros.actions import RIGHT_ONLY, SIMPLE_MOVEMENT, COMPLEX_MOVEMENT, RIGHT_AND_JUMP, TEST
-
 
 # a key mapping of action spaces to wrap with
 _ACTION_SPACES = {
@@ -15,7 +14,7 @@ _ACTION_SPACES = {
     'simple': SIMPLE_MOVEMENT,
     'complex': COMPLEX_MOVEMENT,
     'right_and_jump': RIGHT_AND_JUMP,
-    'test' : TEST
+    'test': TEST
 }
 
 
@@ -48,7 +47,7 @@ def _get_args():
                         default=500,
                         help='The number of random steps to take.',
                         )
-                        
+
     # parse arguments and return them
     return parser.parse_args()
 
@@ -72,9 +71,6 @@ def main():
         play_random(env, args.steps)
     if args.mode == 'q':
         play_q(env, args, actions)
-    if args.mode == 'deep_q':
-        play_deep_q(env)
-
 
 
 # explicitly define the outward facing API of this module

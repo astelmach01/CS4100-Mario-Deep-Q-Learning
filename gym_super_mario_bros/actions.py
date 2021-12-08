@@ -6,8 +6,8 @@ TEST = [
 ]
 
 RIGHT_AND_JUMP = [
-    ['right'],
-    ['right', 'A']
+    ['right'], # 0
+    ['right', 'A'] # 1
 ]
 
 # actions for the simple run right environment
