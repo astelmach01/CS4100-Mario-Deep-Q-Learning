@@ -6,6 +6,7 @@ from nes_py.wrappers import JoypadSpace
 from nes_py.app.play_human import play_human
 from nes_py.app.play_random import play_random
 from Q_Agent.play import play_q
+from Q_Agent.play import play_double_q
 from gym_super_mario_bros.actions import RIGHT_ONLY, SIMPLE_MOVEMENT, COMPLEX_MOVEMENT, RIGHT_AND_JUMP, TEST
 
 # a key mapping of action spaces to wrap with
@@ -31,7 +32,7 @@ def _get_args():
     parser.add_argument('--mode', '-m',
                         type=str,
                         default='human',
-                        choices=['human', 'random', 'q', 'deep_q'],
+                        choices=['human', 'random', 'q', 'deep_q', 'double_q'],
                         help='The execution mode for the emulation'
                         )
     # add the argument for adjusting the action space
@@ -71,7 +72,8 @@ def main():
         play_random(env, args.steps)
     if args.mode == 'q':
         play_q(env, args, actions)
-
+    if args.mode == 'double_q':
+        play_double_q(env, args, actions)
 
 # explicitly define the outward facing API of this module
 __all__ = [main.__name__]
