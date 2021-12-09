@@ -1,4 +1,3 @@
-
 import random
 from collections import deque
 
@@ -219,14 +218,13 @@ class DQNNAgent:
         return action
 
 
-
 def train():
     save_directory = "mario_tf"
     agent = DQNNAgent(save_directory, env.action_space.n)
     agent.net.model.compile(keras.optimizers.Adam())
     agent.net.target.compile(keras.optimizers.Adam())
 
-    #agent.load_checkpoint('mario_tfcheckpoint_model.h5')
+    # agent.load_checkpoint('mario_tfcheckpoint_model.h5')
     episode = 0
     checkpoint_period = 5
     while True:
@@ -254,4 +252,5 @@ def train():
                 break
 
 
-train()
+if __name__ == "__main__":
+    train()
