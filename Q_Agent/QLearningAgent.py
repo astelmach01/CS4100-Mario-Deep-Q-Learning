@@ -4,7 +4,7 @@ import random
 import numpy as np
 from nes_py.wrappers import JoypadSpace
 
-from DeepQLearningAgent import SkipFrame
+from Q_Agent.DeepQLearningAgent import SkipFrame
 from Q_Agent.util import Counter
 
 '''
@@ -73,7 +73,6 @@ class ValueIterationAgent:
 
         self.q_values = Counter(self.env.action_space.n)
 
-        self.valueIteration()
 
     def custom_score_reward(self, info, reward):
         reward += (info['score'] - self.prev_score) / 40.0
@@ -91,6 +90,14 @@ class ValueIterationAgent:
         self.exploration_rate = max(self.exploration_rate_min, self.exploration_rate)
 
         return action
+
+    def updateQValue(self, reward, state, action, next_max):
+        # implement q learning
+        old_value = self.q_values[state][action]
+
+
+        # Q(s, a) <-------------------- Q(s, a) +       alpha * (reward + discount * max(Q(s', a')) - Q(s, a))
+        self.q_values[state][action] = old_value + self.alpha * (reward + self.gamma * next_max - old_value)
 
     def valueIteration(self):
 
@@ -113,7 +120,6 @@ class ValueIterationAgent:
 
             # used to end game early
             iteration = 1
-            detect = -1
 
             while not done:
 
@@ -131,13 +137,8 @@ class ValueIterationAgent:
                 #         # reward *= -2
                 #         done = True
                 #     detect = info["x_pos"]
-
-                # implement q learning
-                old_value = self.q_values[state][action]
                 next_max = self.get_max_value(next_state)
-
-                # Q(s, a) <-------------------- Q(s, a) +       alpha * (reward + discount * max(Q(s', a')) - Q(s, a))
-                self.q_values[state][action] = old_value + self.alpha * (reward + self.gamma * next_max - old_value)
+                self.updateQValue(reward, state, action, next_max)
 
                 state = next_state
                 iteration += 1

@@ -9,7 +9,7 @@ episodes = 100
 def play_q(env: JoypadSpace, args, actions):
     """Play the game using the Q-learning agent."""
     agent: ValueIterationAgent = ValueIterationAgent(env, actions)
-
+    agent.valueIteration()
     for _ in range(episodes):
 
         environment = None
@@ -38,7 +38,7 @@ def play_q(env: JoypadSpace, args, actions):
 def play_double_q(env: JoypadSpace, args, actions):
     """Play the game using the Q-learning agent."""
     agent = DoubleQLearningAgent(env, actions)
-
+    agent.valueIteration()
     for _ in range(episodes):
 
         environment = None
