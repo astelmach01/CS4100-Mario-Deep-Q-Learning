@@ -219,6 +219,7 @@ class DQNNAgent:
         return action
 
 
+
 def train():
     save_directory = "mario_tf"
     agent = DQNNAgent(save_directory, env.action_space.n)
