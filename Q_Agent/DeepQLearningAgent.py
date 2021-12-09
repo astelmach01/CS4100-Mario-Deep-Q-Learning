@@ -142,7 +142,7 @@ class DDQNAgent:
         if self.batch_size > len(self.memory):
             return
         state, next_state, action, reward, done = self.recall()
-        first = self.net(state[0].cuda().unsqueeze(0), model='online')
+        x = self.net(state.cuda(), model="online")
         q_estimate = self.net(state.cuda(), model="online")[np.arange(0, self.batch_size), action.cuda()]
         with torch.no_grad():
             best_action = torch.argmax(self.net(next_state.cuda(), model="online"), dim=1)
@@ -162,8 +162,6 @@ class DDQNAgent:
         if np.random.rand() < self.exploration_rate:
             action = np.random.randint(self.action_dim)
         else:
-            tensor = torch.tensor(state.__array__()).cuda().unsqueeze(0)
-            x = self.net(torch.tensor(state.__array__()).cuda().unsqueeze(0), model="online")
             action_values = self.net(torch.tensor(state.__array__()).cuda().unsqueeze(0), model="online")
             action = torch.argmax(action_values, dim=1).item()
         self.exploration_rate *= self.exploration_rate_decay
@@ -234,3 +232,5 @@ def play():
 
 if __name__ == "__main__":
     sweat()
+
+
