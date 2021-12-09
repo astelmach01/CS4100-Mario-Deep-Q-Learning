@@ -4,8 +4,11 @@ env = SuperMarioBrosEnv()
 
 done = True
 
+
+
+
 try:
-    for _ in tqdm.tqdm(range(5000)):
+    for _ in tqdm.tqdm(range(1)):
         if done:
             state = env.reset()
             done = False
@@ -13,3 +16,8 @@ try:
             state, reward, done, info = env.step(env.action_space.sample())
 except KeyboardInterrupt:
     pass
+
+
+
+import os
+
