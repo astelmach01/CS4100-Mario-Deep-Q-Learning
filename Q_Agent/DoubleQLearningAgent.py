@@ -12,7 +12,7 @@ def make_state(info):
 class DoubleQLearningAgent(ValueIterationAgent):
 
     def __init__(self, env, actions, alpha=.1, gamma=.9, exploration_rate=1, exploration_rate_min=.1,
-                 exploration_rate_decay=0.99999, iterations=10000):
+                 exploration_rate_decay=0.999999, iterations=10000):
         self.env = SkipFrame(env, skip=5)
         self.actions = actions
         self.alpha = alpha
