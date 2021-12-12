@@ -234,3 +234,5 @@ if __name__ == "__main__":
     sweat()
 
 
+# code taken from https://medium.com/geekculture/a-simple-guide-to-reinforcement-learning-with-the-super-mario-bros-environment-495a13974a54
+

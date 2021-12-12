@@ -1,3 +1,5 @@
+from tensorflow.python.keras.engine.compile_utils import LossesContainer
+import gym_super_mario_bros
 import random
 from collections import deque
 
@@ -15,8 +17,7 @@ from tensorflow import keras
 import pickle
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-
-import gym_super_mario_bros
+tf.debugging.set_log_device_placement(True)
 
 
 class SkipFrame(gym.Wrapper):
@@ -88,7 +89,8 @@ class DoubleDeepQNN(tf.keras.Model):
         super(DoubleDeepQNN, self).__init__()
 
         self.model = models.Sequential()
-        self.model.add(layers.Conv2D(32, (8, 8), input_shape=input_shape[1:], activation='relu', strides=4))
+        self.model.add(layers.Conv2D(
+            32, (8, 8), input_shape=input_shape[1:], activation='relu', strides=4))
         self.model.add(layers.Conv2D(64, (4, 4), activation='relu', strides=2))
         self.model.add(layers.Conv2D(64, (3, 3), activation='relu', strides=1))
         self.model.add(layers.Flatten())
@@ -152,8 +154,8 @@ class DQNNAgent:
         print(f"Episode {episode} - Step {step} - Epsilon {epsilon} "
               f"- Mean Reward {self.moving_average_episode_rewards[-1]}")
         plt.plot(self.moving_average_episode_rewards)
-        # filename = os.path.join(self.save_directory, "episode_rewards_plot.png")
-        filename = 'C:\\Users\Andrew Stelmach\Desktop\Mario Q Learning\Q_Agent\mario_tf\episode_rewards_plot.png'
+        #filename = os.path.join(self.save_directory, "episode_rewards_plot.png")
+        filename = 'Q_Agent\mario_tf\episode_rewards_plot.png'
         if exists(filename):
             plt.savefig(filename, format="png")
         with open(filename, "w"):
@@ -163,18 +165,12 @@ class DQNNAgent:
     def load_checkpoint(self, model_path):
         self.net.model = tf.keras.models.load_model(model_path)
         self.net.target.set_weights(self.net.model.get_weights())
-
-        self.net.model.compile(keras.optimizers.Adam(), loss="mse")
-        self.net.target.compile(keras.optimizers.Adam(), loss="mse")
-
-        with open('C:\\Users\Andrew Stelmach\Desktop\Mario Q Learning\mario_tf.memory', 'rb') as f:
-            self.memory = pickle.load(f)
+        self.memory = pickle.load(open(self.save_directory + ".memory", "rb"))
 
     def save_model(self):
         self.net.model.save(self.save_directory + 'checkpoint_model.h5')
-        with open(self.save_directory + ".memory", "wb") as f:
-            pickle.dump(self.memory, f)
         print('Checkpoint saved to \'{}\''.format(self.save_directory))
+        pickle.dump(self.memory, open(self.save_directory + ".memory", "wb"))
 
     def remember(self, state, next_state, action, reward, done):
         self.memory.append((state, next_state, action, reward, done))
@@ -195,21 +191,16 @@ class DQNNAgent:
             return
 
         state, next_state, action, reward, done = self.recall()
+        q_estimate = self.net(state)
+        q_estimate = batch(q_estimate, action)
         
-        with tf.GradientTape() as tape:
-            q_estimate = self.net(state)
-            q_estimate = batch(q_estimate, action)
-
-            best_action = np.argmax(self.net(next_state), axis=1)
-            next_q = self.net.target(next_state)
-            next_q = batch(next_q, best_action)
-            q_target = (reward + (1 - done) * self.gamma * next_q)
-
-            loss_value = keras.losses.MSE(q_estimate, q_target)
-
-            grads = tape.gradient(loss_value, self.net.trainable_weights)
-            self.optimizer.apply_gradients(
-                zip(grads, self.net.trainable_weights))
+        
+        best_action = np.argmax(self.net(next_state), axis=1)
+        next_q = self.net.target(next_state)
+        next_q = batch(next_q, best_action)
+        q_target = (reward + (1 - done) * self.gamma * next_q)
+        
+        self.net.model.train_on_batch(state, q_target)
 
     def act(self, state):
         if np.random.rand() < self.exploration_rate:
@@ -223,7 +214,8 @@ class DQNNAgent:
             action = np.argmax(predicted)
 
         self.exploration_rate *= self.exploration_rate_decay
-        self.exploration_rate = max(self.exploration_rate_min, self.exploration_rate)
+        self.exploration_rate = max(
+            self.exploration_rate_min, self.exploration_rate)
         self.current_step += 1
 
         return action
@@ -232,13 +224,12 @@ class DQNNAgent:
 def train():
     save_directory = "mario_tf"
     agent = DQNNAgent(save_directory, env.action_space.n)
-    agent.net.model.compile(keras.optimizers.Adam(), loss='mse')
-    agent.net.target.compile(keras.optimizers.Adam(), loss='mse')
+    agent.net.model.compile(keras.optimizers.Adam(), loss="mse")
+    agent.net.target.compile(keras.optimizers.Adam(), loss="mse")
 
-    agent.load_checkpoint('C:\\Users\Andrew Stelmach\Desktop\Mario Q Learning\mario_tfcheckpoint_model.h5')
+    agent.load_checkpoint('Q_Agent\mario_tfcheckpoint_model.h5')
     episode = 0
-    checkpoint_period = 10
-    save_period = 50
+    checkpoint_period = 5
     while True:
         state = env.reset()
         while True:
@@ -254,8 +245,7 @@ def train():
                 episode += 1
                 agent.log_episode()
                 if episode % checkpoint_period == 0:
-                    if episode % save_period == 0:
-                        agent.save_model()
+                    agent.save_model()
                     agent.log_period(
                         episode=episode,
                         epsilon=agent.exploration_rate,
@@ -266,9 +256,10 @@ def train():
 
 
 def play():
+
     save_directory = "mario_tf"
     agent = DQNNAgent(save_directory, env.action_space.n)
-    agent.load_checkpoint('mario_tfcheckpoint_model.h5')
+    agent.load_checkpoint('Q_Agent\mario_tfcheckpoint_model.h5')
     while True:
         state = env.reset()
         done = False
