@@ -4,7 +4,7 @@ from Q_Agent.DeepQLearningAgent import SkipFrame
 import numpy as np
 import json
 
-file_name = "C:\\Users\Andrew Stelmach\Desktop\Mario Q Learning\\q_tables"
+file_name = "q_tables\\double_q"
 
 def make_state(info):
     return str(info["x_pos"]) + "," + str(info["y_pos"])
@@ -12,7 +12,7 @@ def make_state(info):
 class DoubleQLearningAgent(ValueIterationAgent):
 
     def __init__(self, env, actions, alpha=.1, gamma=.9, exploration_rate=1, exploration_rate_min=.1,
-                 exploration_rate_decay=0.999999, iterations=10000):
+                 exploration_rate_decay=0.9999, iterations=2):
         self.env = SkipFrame(env, skip=5)
         self.actions = actions
         self.alpha = alpha
@@ -51,6 +51,7 @@ class DoubleQLearningAgent(ValueIterationAgent):
 
         # For plotting metrics
         num_done_well = 0
+        num_flags_get = 0
 
         # keeping track of the x values we've hit
         x_s = set()
@@ -99,11 +100,9 @@ class DoubleQLearningAgent(ValueIterationAgent):
                 if info["x_pos"] > 1400:
                     num_done_well += 1
                     
-                if info["x_pos"] > 3000:
-                    print()
-                    print("BEAT LEVEL")
-                    print()
-
+                if info["flag_get"]:
+                    print("MARIO DID IT")
+                    num_flags_get += 1
                 x_s.add(info["x_pos"])
                 
 
@@ -116,21 +115,22 @@ class DoubleQLearningAgent(ValueIterationAgent):
         print("Training finished.\n")
         print("Largest x_pos: " + str(max(x_s)))
         print("Num done well: " + str(num_done_well))
+        print("Num times Mario won the game: " + str(num_flags_get))
 
         # write q table to file
-        self.agent1.q_values = dict((''.join(str(k)), str(v)) for k, v in self.q_values.items())
-        self.agent2.q_values = dict((''.join(str(k)), str(v)) for k, v in self.q_values.items())
+        writable_values_agent1 = dict((''.join(str(k)), str(v)) for k, v in self.agent1.q_values.items())
+        writable_values_agent2 = dict((''.join(str(k)), str(v)) for k, v in self.agent2.q_values.items())
 
 
         try:
-            with open(file_name + "1st_q_table", 'w') as convert_file:
-                convert_file.write(json.dumps(self.agent1.q_values))
+            with open(file_name + "1st_q_table.txt", 'w') as convert_file:
+                convert_file.write(json.dumps(writable_values_agent1))
         except:
             q = 2
 
         try:
-            with open(file_name + "2nd_q_table", 'w') as convert_file:
-                convert_file.write(json.dumps(self.agent2.q_values))
+            with open(file_name + "2nd_q_table.txt", 'w') as convert_file:
+                convert_file.write(json.dumps(writable_values_agent2))
         except:
             q = 2
 
