@@ -11,8 +11,8 @@ def make_state(info):
 
 class DoubleQLearningAgent(ValueIterationAgent):
 
-    def __init__(self, env, actions, alpha=.1, gamma=.9, exploration_rate=1, exploration_rate_min=.1,
-                 exploration_rate_decay=0.9999, iterations=2):
+    def __init__(self, env, actions, alpha=.1, gamma=.9, exploration_rate=1, exploration_rate_min=.05,
+                 exploration_rate_decay=0.9999, iterations=10000):
         self.env = SkipFrame(env, skip=5)
         self.actions = actions
         self.alpha = alpha
@@ -32,8 +32,7 @@ class DoubleQLearningAgent(ValueIterationAgent):
         else:
             action = self.get_action(state)
 
-        self.exploration_rate *= self.exploration_rate_decay
-        self.exploration_rate = max(self.exploration_rate_min, self.exploration_rate)
+
 
         return action
 
@@ -111,6 +110,8 @@ class DoubleQLearningAgent(ValueIterationAgent):
                   + str(self.agent2.q_values[state][action]) +
                   ". Epsilon: " + str(
                 self.exploration_rate))
+            self.exploration_rate *= self.exploration_rate_decay
+            self.exploration_rate = max(self.exploration_rate_min, self.exploration_rate)
 
         print("Training finished.\n")
         print("Largest x_pos: " + str(max(x_s)))
