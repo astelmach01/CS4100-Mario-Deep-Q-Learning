@@ -93,8 +93,9 @@ class ValueIterationAgent:
 
     def updateQValue(self, reward, state, action, next_max):
         # implement q learning
+        if isinstance(state, np.ndarray):
+            return
         old_value = self.q_values[state][action]
-
 
         # Q(s, a) <-------------------- Q(s, a) +       alpha * (reward + discount * max(Q(s', a')) - Q(s, a))
         self.q_values[state][action] = old_value + self.alpha * (reward + self.gamma * next_max - old_value)

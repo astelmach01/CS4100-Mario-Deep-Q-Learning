@@ -415,6 +415,8 @@ class SuperMarioBrosEnv(NESEnv):
             world=self._world,
             x_pos=self._x_position,
             y_pos=self._y_position,
+            x_pixel=self._left_x_position,
+            y_pixel=self._y_pixel
         )
 
 

@@ -3,16 +3,15 @@ import random
 from Q_Agent.DeepQLearningAgent import SkipFrame
 import numpy as np
 import json
-
+from collections import Counter
 file_name = "q_tables\\double_q"
 
-def make_state(info):
-    return str(info["x_pos"]) + "," + str(info["y_pos"])
+
 
 class DoubleQLearningAgent(ValueIterationAgent):
 
-    def __init__(self, env, actions, alpha=.1, gamma=.9, exploration_rate=1, exploration_rate_min=.05,
-                 exploration_rate_decay=0.9999, iterations=10000):
+    def __init__(self, env, actions, alpha=.05, gamma=.95, exploration_rate=0, exploration_rate_min=0,
+                 exploration_rate_decay=0.9995, iterations=10):
         self.env = SkipFrame(env, skip=5)
         self.actions = actions
         self.alpha = alpha
@@ -24,7 +23,52 @@ class DoubleQLearningAgent(ValueIterationAgent):
 
         self.agent1 = ValueIterationAgent(env, actions)
         self.agent2 = ValueIterationAgent(env, actions)
+        #try to load in q table from previously written text file
+        try:
+             values = json.load(open("q_tables\\double_q1st_q_table_new_states.txt"))
+             self.agent1.q_values = Counter()
+             for key, value in values.items():
+                 format_value = value.strip('][').split(" ")
+                 format_value = list(map(float, [num for num in format_value if num != ""]))
+                 self.agent1.q_values[key] = format_value
+             values2 = json.load(open("q_tables\\double_q2nd_q_table_new_states.txt"))
+             self.agent2.q_values = Counter()
+             for key, value in values2.items():
+                 format_value = value.strip('][').split(" ")
+                 format_value = list(map(float, [num for num in format_value if num != ""]))
+                 self.agent2.q_values[key] = format_value
+        except BaseException as e:
+             print("failed to load: {0}".format(e))
         self.valueIteration()
+
+    def make_state(self, state, info):
+        processed_state = state
+        object = 0
+        enemy = 0
+        pit = 0
+        #probably mario low center
+        mario_x = info['x_pixel']+7
+        #29
+        mario_y = info['y_pixel']+25
+        #205, 50
+        #205, 47
+        # 3 pixels from right hitbox
+        pixel_right = processed_state[min(mario_y, 239)][min(mario_x+8, 255)]
+        # print(pixel_right)
+        pixel_pit_detector = processed_state[239][mario_x+5]
+        # if np.array_equal(pixel_pit_detector, [104, 136, 252]):
+        #     #print('pit')
+        #     pit = 1
+        # if np.array_equal(pixel_right, [184, 248, 24]):
+        #     pass #bush
+        # if np.array_equal(pixel_right, [228, 92, 16]):
+        #     #print('goomba')
+        #     enemy = 1
+        # if np.array_equal(pixel_right, [0, 0, 0]):
+        #    # print('pipe')
+        #     object = 1
+        mario_surroundings_result = 0
+        return str(pixel_right)+str(pixel_pit_detector)+str(info['status'])
 
     def epsilon_greedy_action(self, state):
         if random.uniform(0, 1) < self.exploration_rate:
@@ -38,8 +82,11 @@ class DoubleQLearningAgent(ValueIterationAgent):
 
     def get_action(self, state):
         # get action from sum of Q1 and Q2
-        summed_q_values = self.agent1.q_values[state] + self.agent2.q_values[state]
+        if isinstance(state, np.ndarray):
+            return random.randint(0, self.env.action_space.n - 1)
+        summed_q_values = np.asarray(self.agent1.q_values[state]) + np.asarray(self.agent2.q_values[state])
         return np.argmax(summed_q_values)
+
 
 
     def valueIteration(self):
@@ -51,6 +98,7 @@ class DoubleQLearningAgent(ValueIterationAgent):
         # For plotting metrics
         num_done_well = 0
         num_flags_get = 0
+        average_x_pos = 0
 
         # keeping track of the x values we've hit
         x_s = set()
@@ -70,8 +118,7 @@ class DoubleQLearningAgent(ValueIterationAgent):
                 action = self.epsilon_greedy_action(state)
 
                 next_state, reward, done, info = self.env.step(action)
-
-                next_state = make_state(info)
+                next_state = self.make_state(next_state, info)
 
                 # check if you've been in same x position for a while
                 # and if so, end game early
@@ -92,8 +139,8 @@ class DoubleQLearningAgent(ValueIterationAgent):
                 state = next_state
                 iteration += 1
 
-                if i > self.iterations / 2:
-                    self.env.render()
+
+                self.env.render()
 
                 # amount of times we've gotten past 3rd pipe
                 if info["x_pos"] > 1400:
@@ -110,6 +157,7 @@ class DoubleQLearningAgent(ValueIterationAgent):
                   + str(self.agent2.q_values[state][action]) +
                   ". Epsilon: " + str(
                 self.exploration_rate))
+            average_x_pos += info['x_pos']
             self.exploration_rate *= self.exploration_rate_decay
             self.exploration_rate = max(self.exploration_rate_min, self.exploration_rate)
 
@@ -117,23 +165,24 @@ class DoubleQLearningAgent(ValueIterationAgent):
         print("Largest x_pos: " + str(max(x_s)))
         print("Num done well: " + str(num_done_well))
         print("Num times Mario won the game: " + str(num_flags_get))
+        print("Average reward: " + str(average_x_pos / self.iterations))
 
         # write q table to file
         writable_values_agent1 = dict((''.join(str(k)), str(v)) for k, v in self.agent1.q_values.items())
         writable_values_agent2 = dict((''.join(str(k)), str(v)) for k, v in self.agent2.q_values.items())
 
 
-        try:
-            with open(file_name + "1st_q_table.txt", 'w') as convert_file:
-                convert_file.write(json.dumps(writable_values_agent1))
-        except:
-            q = 2
-
-        try:
-            with open(file_name + "2nd_q_table.txt", 'w') as convert_file:
-                convert_file.write(json.dumps(writable_values_agent2))
-        except:
-            q = 2
+        # try:
+        #     with open(file_name + "1st_q_table_new_states.txt", 'w') as convert_file:
+        #         convert_file.write(json.dumps(writable_values_agent1))
+        # except:
+        #    q = 2
+        #
+        # try:
+        #     with open(file_name + "2nd_q_table_new_states.txt", 'w') as convert_file:
+        #         convert_file.write(json.dumps(writable_values_agent2))
+        # except:
+        #     q = 2
 
         with open(file_name + "x_s.txt", 'w') as f:
             for item in x_s:
