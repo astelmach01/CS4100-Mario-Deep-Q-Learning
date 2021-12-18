@@ -4,14 +4,16 @@ from Q_Agent.DeepQLearningAgent import SkipFrame
 import numpy as np
 import json
 from collections import Counter
+import matplotlib.pyplot as plt
+from os.path import exists
 file_name = "q_tables\\double_q"
 
 
 
 class DoubleQLearningAgent(ValueIterationAgent):
 
-    def __init__(self, env, actions, alpha=.05, gamma=.95, exploration_rate=0, exploration_rate_min=0,
-                 exploration_rate_decay=0.9995, iterations=10):
+    def __init__(self, env, actions, alpha=.1, gamma=.9, exploration_rate=0, exploration_rate_min=0,
+                 exploration_rate_decay=0.9997, iterations=5000):
         self.env = SkipFrame(env, skip=5)
         self.actions = actions
         self.alpha = alpha
@@ -20,28 +22,52 @@ class DoubleQLearningAgent(ValueIterationAgent):
         self.exploration_rate_min = exploration_rate_min
         self.exploration_rate_decay = exploration_rate_decay
         self.iterations = iterations
-
+        self.episode_rewards = []
+        self.moving_average_episode_rewards = []
+        self.current_episode_reward = 0.0
+        self.period = 20
         self.agent1 = ValueIterationAgent(env, actions)
         self.agent2 = ValueIterationAgent(env, actions)
-        #try to load in q table from previously written text file
-        try:
-             values = json.load(open("q_tables\\double_q1st_q_table_new_states.txt"))
-             self.agent1.q_values = Counter()
-             for key, value in values.items():
-                 format_value = value.strip('][').split(" ")
-                 format_value = list(map(float, [num for num in format_value if num != ""]))
-                 self.agent1.q_values[key] = format_value
-             values2 = json.load(open("q_tables\\double_q2nd_q_table_new_states.txt"))
-             self.agent2.q_values = Counter()
-             for key, value in values2.items():
-                 format_value = value.strip('][').split(" ")
-                 format_value = list(map(float, [num for num in format_value if num != ""]))
-                 self.agent2.q_values[key] = format_value
-        except BaseException as e:
-             print("failed to load: {0}".format(e))
+       # try to load in q table from previously written text file
+       #  try:
+       #       values = json.load(open("q_tables\\double_q1st_q_table_new_try.txt"))
+       #       self.agent1.q_values = Counter()
+       #       for key, value in values.items():
+       #           format_value = value.strip('][').split(" ")
+       #           format_value = list(map(float, [num for num in format_value if num != ""]))
+       #           self.agent1.q_values[key] = format_value
+       #       values2 = json.load(open("q_tables\\double_q2nd_q_table_new_try.txt"))
+       #       self.agent2.q_values = Counter()
+       #       for key, value in values2.items():
+       #           format_value = value.strip('][').split(" ")
+       #           format_value = list(map(float, [num for num in format_value if num != ""]))
+       #           self.agent2.q_values[key] = format_value
+       #  except BaseException as e:
+       #       print("failed to load: {0}".format(e))
         self.valueIteration()
 
-    def make_state(self, state, info):
+    def make_state(self, info):
+        return str(info['x_pos'])+","+str(info['y_pos'])
+
+    def log_episode(self):
+        self.episode_rewards.append(self.current_episode_reward)
+        self.current_episode_reward = 0.0
+
+    def log_period(self, episode, epsilon, step, checkpoint_period):
+        self.moving_average_episode_rewards.append(np.round(
+            np.mean(self.episode_rewards[-checkpoint_period:]), 3))
+        print(f"Episode {episode} - Step {step} - Epsilon {epsilon} "
+              f"- Mean Reward {self.moving_average_episode_rewards[-1]}")
+        plt.plot(self.moving_average_episode_rewards)
+        # filename = os.path.join(self.save_directory, "episode_rewards_plot.png")
+        filename = 'q_tables\\dq_episode_rewards_plot.png'
+        if exists(filename):
+            plt.savefig(filename, format="png")
+        with open(filename, "w"):
+            plt.savefig(filename, format="png")
+        plt.clf()
+
+    def make_state_pixeldata(self, state, info):
         processed_state = state
         object = 0
         enemy = 0
@@ -85,7 +111,15 @@ class DoubleQLearningAgent(ValueIterationAgent):
         if isinstance(state, np.ndarray):
             return random.randint(0, self.env.action_space.n - 1)
         summed_q_values = np.asarray(self.agent1.q_values[state]) + np.asarray(self.agent2.q_values[state])
-        return np.argmax(summed_q_values)
+        max = -99999999
+        for val in summed_q_values:
+            if val > max:
+                max = val
+        max_vals = []
+        for i in range(len(summed_q_values)):
+            if summed_q_values[i] == max:
+                max_vals.append(i)
+        return random.choice(max_vals)
 
 
 
@@ -118,8 +152,8 @@ class DoubleQLearningAgent(ValueIterationAgent):
                 action = self.epsilon_greedy_action(state)
 
                 next_state, reward, done, info = self.env.step(action)
-                next_state = self.make_state(next_state, info)
-
+                next_state = self.make_state(info)
+                self.current_episode_reward += reward
                 # check if you've been in same x position for a while
                 # and if so, end game early
                 # if iteration % 50 == 0:
@@ -150,8 +184,10 @@ class DoubleQLearningAgent(ValueIterationAgent):
                     print("MARIO DID IT")
                     num_flags_get += 1
                 x_s.add(info["x_pos"])
-                
 
+            self.log_episode()
+            if i % self.period == 0:
+                self.log_period(i, self.exploration_rate, iteration, self.period)
             print("Iteration " + str(i) + ": x_pos = " + str(info["x_pos"]) + ". Reward: " + str(
                 reward) + ". Q-value 1: " + str(self.agent1.q_values[state][action]) +". Q-value 2: "
                   + str(self.agent2.q_values[state][action]) +
@@ -173,13 +209,13 @@ class DoubleQLearningAgent(ValueIterationAgent):
 
 
         # try:
-        #     with open(file_name + "1st_q_table_new_states.txt", 'w') as convert_file:
+        #     with open(file_name + "1st_q_table_new_try.txt", 'w') as convert_file:
         #         convert_file.write(json.dumps(writable_values_agent1))
         # except:
         #    q = 2
         #
         # try:
-        #     with open(file_name + "2nd_q_table_new_states.txt", 'w') as convert_file:
+        #     with open(file_name + "2nd_q_table_new_try.txt", 'w') as convert_file:
         #         convert_file.write(json.dumps(writable_values_agent2))
         # except:
         #     q = 2
