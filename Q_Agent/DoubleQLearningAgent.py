@@ -28,7 +28,7 @@ class DoubleQLearningAgent(ValueIterationAgent):
         self.period = 20
         self.agent1 = ValueIterationAgent(env, actions)
         self.agent2 = ValueIterationAgent(env, actions)
-       # try to load in q table from previously written text file
+       # try to load in q table from previously written text file.
        #  try:
        #       values = json.load(open("q_tables\\double_q1st_q_table_new_try.txt"))
        #       self.agent1.q_values = Counter()
